@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useApp } from '../ui/context';
 import { useRoute } from '../ui/router';
-import { Person, Section, Sensitive, fmtDate } from '../ui/components';
+import { Section, Sensitive, fmtDate } from '../ui/components';
 
 /** Staff view of everything the client told us, kept verbatim. */
 export function ClientRecords() {
@@ -50,33 +49,6 @@ export function ClientRecords() {
           </Section>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** What a client sees: only questions sent to them. Answers become evidence. */
-export function ClientPortal() {
-  const { defs, state, actor, run } = useApp();
-  const [text, setText] = useState<Record<string, string>>({});
-  const items = defs.flatMap((d) => state.cases[d.id].questions.filter((q) => q.to === 'client').map((q) => ({ d, q })));
-  const open = items.filter((x) => !x.q.answer);
-  const done = items.filter((x) => x.q.answer);
-  return (
-    <div className="page portal">
-      <div className="page-h"><div><h1>Hello {actor.name.split(' ')[0]}</h1><p className="muted">Your preparer has {open.length} question{open.length === 1 ? '' : 's'} for you. Your answers are saved to your tax file exactly as you write them.</p></div></div>
-      {open.length === 0 && <div className="empty">No questions waiting. Switch back to a staff role to continue the review.</div>}
-      {open.map(({ d, q }) => (
-        <Section key={q.id} title={q.text}>
-          <p className="small muted">Asked by <Person id={q.by} /> on {fmtDate(q.at)}{q.expected ? ` · please include: ${q.expected}` : ''}</p>
-          <textarea rows={3} value={text[q.id] ?? ''} onChange={(e) => setText({ ...text, [q.id]: e.target.value })} aria-label="Your answer" />
-          <button className="btn primary" onClick={() => run({ type: 'case.answer', payload: { caseId: d.id, qid: q.id, text: text[q.id] } }, 'Thank you — answer sent')}>Send answer</button>
-        </Section>
-      ))}
-      {done.length > 0 && (
-        <Section title="Answered">
-          <ul className="plain">{done.map(({ q }) => <li key={q.id}><strong>{q.text}</strong><div>{q.answer!.text}</div><div className="small muted">{fmtDate(q.answer!.at)}</div></li>)}</ul>
-        </Section>
-      )}
     </div>
   );
 }

@@ -92,3 +92,23 @@ export function explainSuggestion(def: CaseDef, s: SuggestedAdjustment): string 
 export function existingAdjustment(st: WorkState, def: CaseDef, s: SuggestedAdjustment): Adjustment | undefined {
   return st.cases[def.id].adjustments.find((a) => a.lineKey === s.lineKey && a.to === s.to && a.decision?.status !== 'rejected');
 }
+
+/**
+ * The cases a person should work on next, most urgent first. Reviewers and
+ * partners see what waits for their approval first (never their own work);
+ * everyone then sees unresolved cases they own, then the rest, by priority.
+ */
+export function workList(ix: PacketIndex, defs: CaseDef[], st: WorkState, actor: { id: string; role: string }): CaseDef[] {
+  const byPrio = (a: CaseDef, b: CaseDef) => b.priorityScore - a.priorityScore;
+  const unresolved = defs.filter((d) => st.cases[d.id].status !== 'resolved').sort(byPrio);
+  const approver = actor.role === 'partner' || actor.role === 'reviewer';
+  const awaitingMe = approver ? unresolved.filter((d) => {
+    const cs = st.cases[d.id];
+    if (cs.status === 'ready_for_approval' && cs.proposal && cs.proposal.by !== actor.id) return true;
+    return caseFacts(ix, d, st).pendingAdjustments.some((a) => a.by !== actor.id && (actor.role === 'partner' || approverFor(a) === 'reviewer'));
+  }) : [];
+  const workable = unresolved.filter((d) => st.cases[d.id].status !== 'ready_for_approval' && !awaitingMe.includes(d));
+  const mine = workable.filter((d) => st.cases[d.id].owner === actor.id);
+  const others = workable.filter((d) => st.cases[d.id].owner !== actor.id);
+  return [...awaitingMe, ...mine, ...others];
+}

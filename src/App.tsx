@@ -11,7 +11,8 @@ import { Versions } from './views/Versions';
 import { LineTrace } from './views/LineTrace';
 import { Activity } from './views/Activity';
 import { Readiness, Checks } from './views/Readiness';
-import { ClientRecords, ClientPortal } from './views/Client';
+import { ClientRecords } from './views/Client';
+import { ClientPortal } from './views/ClientPortal';
 import { PriorRecords, Assets } from './views/Prior';
 
 const NAV = [
@@ -64,9 +65,11 @@ export function App() {
           <strong>{ix.packet.household.people.filter((p: any) => p.role !== 'dependent').map((p: any) => p.name.split(' ').at(-1)).join('-')}</strong>
           <span className="muted"> · {ix.packet.packet.client_id} · TY{ix.packet.household.tax_year} · MFJ · current return {ix.current.version}</span>
         </div>
-        <a className={`ready-pill r-${ready.level}`} href="#/readiness" title={ready.blockers.join('; ') || 'No blockers'}>
-          {READINESS_LABEL[ready.level]} · {open} open
-        </a>
+        {actor.role !== 'client' && (
+          <a className={`ready-pill r-${ready.level}`} href="#/readiness" title={ready.blockers.join('; ') || 'No blockers'}>
+            {READINESS_LABEL[ready.level]} · {open} open
+          </a>
+        )}
         <label className="role">
           <span className="demo-tag" title="Role switching simulates different users for the demo. It is not authentication; permissions are enforced in the app's command layer.">Demo role</span>
           <select value={actor.id} onChange={(e) => setActor(e.target.value)} aria-label="Act as">

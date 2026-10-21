@@ -85,3 +85,24 @@ describe('guided flow state (derived from the event log)', () => {
     ]);
   });
 });
+
+describe('work list for the home page', () => {
+  it('puts approvals first for a partner and never the partner\'s own work', async () => {
+    const { workList } = await import('../src/ui/flowState');
+    const wp = fresh();
+    // Preparer: same order as the queue (priority score), starting with the RSU case.
+    const queueOrder = [...defs].sort((x, y) => y.priorityScore - x.priorityScore).map((d) => d.id);
+    expect(workList(ix, defs, wp.state, priya)[0].id).toBe(queueOrder[0]);
+    // Propose the 1099-K correction (third by priority; its effect needs a partner).
+    const def = byId.get('WP-1099K-DOUBLE')!;
+    expect(queueOrder.indexOf(def.id)).toBeGreaterThan(0);
+    const s0 = def.suggestions[0];
+    ok(wp.dispatch(priya, { type: 'case.adjust', payload: { caseId: def.id, adjId: 'k1', lineKey: s0.lineKey, from: s0.from, to: s0.to, reason: s0.reason, federal: s0.effect.federal, california: s0.effect.california } }));
+    expect(workList(ix, defs, wp.state, helen)[0].id).toBe(def.id);
+    // A reviewer cannot approve partner-level adjustments, so it does not jump the reviewer's list.
+    const forDaniel = workList(ix, defs, wp.state, daniel);
+    expect(forDaniel[0].id).not.toBe(def.id);
+    expect(wp.state.cases[forDaniel[0].id].owner).toBe(daniel.id); // his own case (Letter 566) comes first
+    expect(workList(ix, defs, wp.state, helen)).toHaveLength(defs.length);
+  });
+});

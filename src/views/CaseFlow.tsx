@@ -192,12 +192,12 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
                   const approver = approverFor(s.effect);
                   return (
                     <tr key={s.lineKey + i}>
-                      <td><span className="mono">{s.lineKey}</span></td>
-                      <td className="num">{money(s.from, { cents: !Number.isInteger(s.from) })}</td>
-                      <td className="num"><strong>{money(s.to, { cents: !Number.isInteger(s.to) })}</strong></td>
-                      <td className="small">{explainSuggestion(def, s)}</td>
-                      <td className="num"><EffectView e={s.effect} compact /><div className="small muted">needs {approver}</div></td>
-                      <td className="small">
+                      <td data-label="Line"><span className="mono">{s.lineKey}</span></td>
+                      <td className="num" data-label="Now">{money(s.from, { cents: !Number.isInteger(s.from) })}</td>
+                      <td className="num" data-label="Proposed"><strong>{money(s.to, { cents: !Number.isInteger(s.to) })}</strong></td>
+                      <td className="small fix-why">{explainSuggestion(def, s)}</td>
+                      <td className="num" data-label="Est. effect"><EffectView e={s.effect} compact /><div className="small muted">needs {approver}</div></td>
+                      <td className="small" data-label="Status">
                         {existing ? (existing.decision ? <span className="pos">Approved by <Person id={existing.decision.by} /></span> : <span className="muted">Proposed, waiting for {approverFor(existing)}</span>)
                           : <button className="btn small" disabled={!staff || cs.status === 'resolved'} onClick={() => run(cmd(i), `Proposed ${s.lineKey}`)}>Propose</button>}
                       </td>

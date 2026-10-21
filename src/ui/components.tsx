@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { CaseDef, Severity } from '../domain/cases';
 import type { Effect } from '../domain/effects';
 import { fmtValue, refKindLabel, resolveRef } from '../domain/refs';
@@ -111,5 +111,28 @@ export function Sensitive({ value, what }: { value: string; what: string }) {
         {actor.clearance ? 'reveal' : 'masked'}
       </button>
     </span>
+  );
+}
+
+/**
+ * A button that runs a command once: it is disabled and shows a spinner while
+ * the command runs, so a double click cannot submit twice.
+ */
+export function ActionButton({ onRun, className = 'btn', disabled, children, title }: { onRun: () => unknown; className?: string; disabled?: boolean; children: ReactNode; title?: string }) {
+  const [busy, setBusy] = useState(false);
+  const guard = useRef(false);
+  const click = () => {
+    if (guard.current) return;
+    guard.current = true;
+    setBusy(true);
+    // Let the disabled/spinner state paint before the (synchronous) dispatch runs.
+    requestAnimationFrame(() => setTimeout(async () => {
+      try { await onRun(); } finally { guard.current = false; setBusy(false); }
+    }, 0));
+  };
+  return (
+    <button className={className} disabled={disabled || busy} aria-busy={busy || undefined} onClick={click} title={title}>
+      {busy && <span className="spinner" aria-hidden />}{children}
+    </button>
   );
 }

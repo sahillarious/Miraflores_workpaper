@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../ui/context';
 import { go, useRoute } from '../ui/router';
 import { DocPage } from '../ui/DocPage';
 import { EffectView, Origin, Person, Prio, Ref, Section, StatusPill, fmtDate, money } from '../ui/components';
-import { approverFor, existingAdjustment, explainSuggestion, flowState, type CheckItem, type FlowState } from '../ui/flowState';
+import { approverFor, existingAdjustment, explainSuggestion, flowState, type FlowState } from '../ui/flowState';
+import { Checklist } from '../ui/Checklist';
+import { HelpPanel } from './HelpPanel';
 import { refKind } from '../domain/refs';
 import { plainSummary } from '../domain/plain';
 import { closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
@@ -16,11 +18,21 @@ import type { CaseDef, Outcome, Reconciliation } from '../domain/cases';
 const STEPS = ['What’s wrong', 'Check the proof', 'Fix it', 'Send'] as const;
 
 export function CaseFlow({ id }: { id: string }) {
-  const { ix, defsById, defs, state, actor } = useApp();
-  const route = useRoute();
+  const { defsById } = useApp();
   const def = defsById.get(id);
   if (!def) return <div className="page"><h1>Case not found</h1><a href="#/queue">Back to all cases</a></div>;
+  return <CaseFlowInner def={def} />;
+}
+
+function CaseFlowInner({ def }: { def: CaseDef }) {
+  const { ix, defs, state, actor } = useApp();
+  const route = useRoute();
+  const id = def.id;
   const cs = state.cases[def.id];
+  const [helpOpen, setHelpOpen] = useState(false);
+  const trigger = useRef<HTMLElement | null>(null);
+  const openHelp = (e: { currentTarget: HTMLElement }) => { trigger.current = e.currentTarget; setHelpOpen(true); };
+  const closeHelp = () => { setHelpOpen(false); trigger.current?.focus(); };
   const fs = flowState(ix, def, state);
   const step = (Number(route.query.get('step')) || fs.defaultStep) as 1 | 2 | 3 | 4;
   const reviewing = ['reviewer', 'partner'].includes(actor.role) && cs.status === 'ready_for_approval';
@@ -41,6 +53,7 @@ export function CaseFlow({ id }: { id: string }) {
       <div className="flow-head">
         <div className="case-tags"><Prio d={def} /> <StatusPill s={cs.status} /> <Origin d={def} /> <span className="tag">{def.area}</span></div>
         <h1>{def.title}</h1>
+        <button className="link need-help" onClick={openHelp}>Need help?</button>
       </div>
       {(fs.staleSignoff || fs.staleProposal) && (
         <div className="banner warn" role="alert">
@@ -59,7 +72,7 @@ export function CaseFlow({ id }: { id: string }) {
 
       <div className="flow-body">
         <div className="flow-main">
-          {step === 1 && <StepWhat def={def} onNext={() => setStep(2)} />}
+          {step === 1 && <StepWhat def={def} onNext={() => setStep(2)} onHelp={openHelp} />}
           {step === 2 && <StepProof def={def} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
           {step === 3 && <StepFix def={def} fs={fs} onNext={() => setStep(4)} onBack={() => setStep(2)} />}
           {step === 4 && (reviewing ? <StepReview def={def} fs={fs} /> : <StepSend def={def} fs={fs} onBack={() => setStep(3)} />)}
@@ -69,25 +82,8 @@ export function CaseFlow({ id }: { id: string }) {
           <div className="small muted">Owner <Person id={cs.owner} /> · <a href={`#/case/${def.id}?view=full`}>Show full details</a></div>
         </aside>
       </div>
+      <HelpPanel def={def} open={helpOpen} step={step} onClose={closeHelp} />
     </div>
-  );
-}
-
-function Checklist({ items }: { items: CheckItem[] }) {
-  const icon: Record<CheckItem['state'], string> = { done: '✓', todo: '○', waiting: '…', stale: '!', na: '–' };
-  const word: Record<CheckItem['state'], string> = { done: 'Done', todo: 'To do', waiting: 'Waiting', stale: 'Changed since sign-off', na: 'Not needed' };
-  return (
-    <section className="section checklist-card" aria-label="Checklist">
-      <header className="section-h"><h3>Checklist</h3></header>
-      <ul className="flow-checklist">
-        {items.map((i) => (
-          <li key={i.id} className={`ci-${i.state}`}>
-            <span className="ci-icon" aria-hidden>{icon[i.state]}</span>
-            <div><div className="ci-label">{i.label} <span className="sr-only">: {word[i.state]}</span></div><div className="small muted">{i.detail}</div></div>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -106,7 +102,7 @@ function SourcePreview({ r }: { r?: string }) {
   return <DocPage doc={ix.docs.get(docId)!} page={k === 'doc' ? 1 : Number(r.split('#page')[1])} compact />;
 }
 
-function StepWhat({ def, onNext }: { def: CaseDef; onNext: () => void }) {
+function StepWhat({ def, onNext, onHelp }: { def: CaseDef; onNext: () => void; onHelp: (e: { currentTarget: HTMLElement }) => void }) {
   return (
     <Section title="What’s wrong">
       <p className="lead">{plainSummary(def)}</p>
@@ -125,7 +121,7 @@ function StepWhat({ def, onNext }: { def: CaseDef; onNext: () => void }) {
       </details>
       <div className="flow-actions">
         <button className="btn primary" onClick={onNext}>Yes, that’s right</button>
-        <a className="btn ghost" href={`#/case/${def.id}?view=full`}>I need help</a>
+        <button className="btn ghost" onClick={onHelp}>I need help</button>
         <span className="small muted">“Yes” only moves you on. It records nothing and changes no status.</span>
       </div>
     </Section>

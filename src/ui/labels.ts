@@ -44,3 +44,9 @@ const SEVERITY_RANK: Record<CaseDef['severity'], number> = { blocker: 3, high: 2
 
 /** Queue order: priority score (unchanged), then severity, so a Blocker sorts above a High on a tie. */
 export const comparePriority = (a: CaseDef, b: CaseDef) => b.priorityScore - a.priorityScore || SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];
+
+/** Status in a sentence: "The case is now waiting for the client." */
+export const STATUS_PHRASE: Record<CaseStatus, string> = {
+  open: 'open', in_review: 'in review', awaiting_client: 'waiting for the client', blocked: 'blocked',
+  ready_for_approval: 'waiting for approval', resolved: 'resolved', reopened: 'reopened',
+};

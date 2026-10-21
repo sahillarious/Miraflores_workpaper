@@ -30,6 +30,7 @@ export function CopilotPanel({ def }: { def: CaseDef }) {
         </button>
         {busy && <span className="small muted">Retrieving records and checking citations; this usually takes 20-90 seconds.</span>}
       </div>
+      {busy && <div className="skeleton-block" aria-busy="true" aria-label="AI analysis loading"><div className="skeleton" /><div className="skeleton" /><div className="skeleton short" /></div>}
       {err && <p className="small neg" role="alert">Copilot: {err}</p>}
       {current && <RunView def={def} runResult={current} record={record} />}
       {cs.copilot.length > 1 && (

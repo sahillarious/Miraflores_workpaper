@@ -418,3 +418,30 @@ details.sub { margin-left: 14px; }
   .help-drawer { top: 0; left: 0; width: 100%; border-radius: 0; transform: translateY(100%); }
   .need-help { position: static; display: inline-block; margin-bottom: 8px; }
 }
+
+/* motion and flow polish (all disabled under prefers-reduced-motion, below) */
+.step-anim { scroll-margin-top: 72px; animation: step-in-fwd 180ms ease-out both; }
+.step-anim.back { animation-name: step-in-back; }
+@keyframes step-in-fwd { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+@keyframes step-in-back { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.progress li button { transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease; }
+.progress-track { height: 3px; background: var(--line-2); border-radius: 2px; overflow: hidden; margin: 2px 0 6px; }
+.progress-fill { height: 100%; background: var(--accent); transition: width 200ms ease; }
+.action-bar { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 16px -14px -12px; padding: 10px 14px; background: rgba(255, 255, 255, 0.97); border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
+.action-bar-r { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.help-root { transition: visibility 0s linear 200ms; }
+.help-root.open { transition: visibility 0s; }
+.help-backdrop { transition: opacity 200ms ease; }
+.help-drawer { transition: transform 200ms ease; }
+.back-guided { display: inline-block; margin-bottom: 10px; }
+.toasts { top: 64px; bottom: auto; }
+@media (max-width: 900px) { .toasts { top: 8px; } }
+@supports selector(::details-content) {
+  :root { interpolate-size: allow-keywords; }
+  details::details-content { block-size: 0; overflow: clip; transition: block-size 200ms ease, content-visibility 200ms allow-discrete; }
+  details[open]::details-content { block-size: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  details::details-content { transition: none !important; }
+}

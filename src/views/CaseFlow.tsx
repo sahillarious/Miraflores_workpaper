@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp } from '../ui/context';
 import { go, useRoute } from '../ui/router';
 import { DocPage } from '../ui/DocPage';
-import { EffectView, Origin, Person, Prio, Ref, Section, StatusPill, fmtDate, money } from '../ui/components';
+import { ActionButton, EffectView, Origin, Person, Prio, Ref, Section, StatusPill, fmtDate, money } from '../ui/components';
 import { approverFor, existingAdjustment, explainSuggestion, flowState, type FlowState } from '../ui/flowState';
 import { Checklist } from '../ui/Checklist';
 import { HelpPanel } from './HelpPanel';
@@ -38,6 +38,19 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
   const reviewing = ['reviewer', 'partner'].includes(actor.role) && cs.status === 'ready_for_approval';
   const names = STEPS.map((s, i) => (i === 3 && reviewing ? 'Review and approve' : s));
   const setStep = (n: number) => go(`#/case/${def.id}?step=${n}`);
+  // Direction-aware step transition; on a step change, focus the step heading and bring it into view.
+  const prevStep = useRef(step);
+  const dir = step >= prevStep.current ? 'fwd' : 'back';
+  const stepRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (prevStep.current === step) return;
+    prevStep.current = step;
+    const el = stepRef.current;
+    if (!el) return;
+    const h = el.querySelector<HTMLElement>('h3');
+    if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    if (el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [step]);
   const idx = defs.findIndex((d) => d.id === id);
   const next = defs[idx + 1];
 
@@ -46,7 +59,7 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
       <div className="crumbs">
         <a href="#/queue">All cases</a> / <span className="mono">{def.id}</span>
         <span className="crumb-nav">
-          <a href={`#/case/${def.id}?view=full`}>Show full details</a>
+          <a href={`#/case/${def.id}?view=full&from=${step}`}>Show full details</a>
           {next && <a href={`#/case/${next.id}`} title={next.title}>Next case →</a>}
         </span>
       </div>
@@ -68,18 +81,21 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
           </li>
         ))}
       </ol>
+      <div className="progress-track" aria-hidden><div className="progress-fill" style={{ width: `${step * 25}%` }} /></div>
       <p className="small muted progress-label">Step {step} of 4</p>
 
       <div className="flow-body">
         <div className="flow-main">
+          <div key={step} ref={stepRef} className={`step-anim ${dir}`}>
           {step === 1 && <StepWhat def={def} onNext={() => setStep(2)} onHelp={openHelp} />}
           {step === 2 && <StepProof def={def} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
           {step === 3 && <StepFix def={def} fs={fs} onNext={() => setStep(4)} onBack={() => setStep(2)} />}
           {step === 4 && (reviewing ? <StepReview def={def} fs={fs} /> : <StepSend def={def} fs={fs} onBack={() => setStep(3)} />)}
+          </div>
         </div>
         <aside className="flow-side">
           <Checklist items={fs.items} />
-          <div className="small muted">Owner <Person id={cs.owner} /> · <a href={`#/case/${def.id}?view=full`}>Show full details</a></div>
+          <div className="small muted">Owner <Person id={cs.owner} /> · <a href={`#/case/${def.id}?view=full&from=${step}`}>Show full details</a></div>
         </aside>
       </div>
       <HelpPanel def={def} open={helpOpen} step={step} onClose={closeHelp} />
@@ -119,11 +135,10 @@ function StepWhat({ def, onNext, onHelp }: { def: CaseDef; onNext: () => void; o
         {def.matters && <p><strong>Why it matters:</strong> {def.matters}</p>}
         <p className="muted">Case <span className="mono">{def.id}</span> · rule <span className="mono">{def.ruleId}</span> · {def.refs.length} records</p>
       </details>
-      <div className="flow-actions">
+      <p className="small muted">“Yes, that’s right” only moves you on. It records nothing and changes no status.</p>
+      <ActionBar extra={<button className="btn ghost" onClick={onHelp}>I need help</button>}>
         <button className="btn primary" onClick={onNext}>Yes, that’s right</button>
-        <button className="btn ghost" onClick={onHelp}>I need help</button>
-        <span className="small muted">“Yes” only moves you on. It records nothing and changes no status.</span>
-      </div>
+      </ActionBar>
     </Section>
   );
 }
@@ -157,11 +172,8 @@ function StepProof({ def, onNext, onBack }: { def: CaseDef; onNext: () => void; 
       <h4>Evidence linked to the decision</h4>
       {cs.links.length ? (
         <ul className="plain small">{cs.links.map((l) => <li key={l.ref}><Ref r={l.ref} compact /> {l.why} <span className="muted">— <Person id={l.by} /></span></li>)}</ul>
-      ) : <p className="small muted">None yet. To link a record by hand, use <a href={`#/case/${def.id}?view=full`}>Show full details</a>.</p>}
-      <div className="flow-actions">
-        <button className="btn ghost" onClick={onBack}>Back</button>
-        <button className="btn primary" onClick={onNext}>The proof checks out</button>
-      </div>
+      ) : <p className="small muted">None yet. To link a record by hand, use <a href={`#/case/${def.id}?view=full&from=2`}>Show full details</a>.</p>}
+      <ActionBar onBack={onBack}><button className="btn primary" onClick={onNext}>The proof checks out</button></ActionBar>
     </Section>
   );
 }
@@ -201,7 +213,7 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
                       <td className="num" data-label="Est. effect"><EffectView e={s.effect} compact /><div className="small muted">needs {approver}</div></td>
                       <td className="small" data-label="Status">
                         {existing ? (existing.decision ? <span className="pos">Approved by <Person id={existing.decision.by} /></span> : <span className="muted">Proposed, waiting for {approverFor(existing)}</span>)
-                          : <button className="btn small" disabled={!staff || cs.status === 'resolved'} onClick={() => run(cmd(i), `Proposed ${s.lineKey}`)}>Propose</button>}
+                          : <ActionButton className="btn small" disabled={!staff || cs.status === 'resolved'} onRun={() => run(cmd(i), `Proposed ${s.lineKey}`)}>Propose</ActionButton>}
                       </td>
                     </tr>
                   );
@@ -211,9 +223,9 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
           </div>
           <div className="flow-actions">
             {proposable.length > 0 && (
-              <button className="btn primary" disabled={!staff || cs.status === 'resolved'} onClick={() => run(proposable.map((x) => cmd(x.i)), `Proposed ${proposable.length} adjustment(s)`)}>
+              <ActionButton className="btn primary" disabled={!staff || cs.status === 'resolved'} onRun={() => run(proposable.map((x) => cmd(x.i)), `Proposed ${proposable.length} adjustment(s)`)}>
                 {proposable.length === def.suggestions.length ? 'Propose all' : `Propose remaining (${proposable.length})`}
-              </button>
+              </ActionButton>
             )}
             {!proposable.length && <span className="small muted">Every suggested change is already proposed or approved. An identical adjustment cannot be proposed twice.</span>}
           </div>
@@ -234,19 +246,16 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
                 <div key={a.id} className="row-wrap small"><span className="mono">{a.lineKey}</span> {money(a.from)} → <strong>{money(a.to)}</strong> <EffectView e={{ federal: a.federal, california: a.california, parts: [], basis: 'Estimate recorded with the adjustment' }} compact /> · proposed by <Person id={a.by} /></div>
               ))}
               <div className="row-wrap">
-                <button className="btn primary" onClick={() => run(fs.pending.filter(canDecide).map((a) => ({ type: 'case.adjust.decide' as const, payload: { caseId: def.id, adjId: a.id, decision: 'approved', note: 'Agreed to cited evidence' } })), 'Adjustments approved')}>Approve {fs.pending.filter(canDecide).length > 1 ? 'all' : ''}</button>
+                <ActionButton className="btn primary" onRun={() => run(fs.pending.filter(canDecide).map((a) => ({ type: 'case.adjust.decide' as const, payload: { caseId: def.id, adjId: a.id, decision: 'approved', note: 'Agreed to cited evidence' } })), 'Adjustments approved')}>Approve {fs.pending.filter(canDecide).length > 1 ? 'all' : ''}</ActionButton>
                 <input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Reason to reject" aria-label="Reason to reject" />
-                <button className="btn ghost" disabled={rejectNote.trim().length < 5} onClick={() => { if (run(fs.pending.filter(canDecide).map((a) => ({ type: 'case.adjust.decide' as const, payload: { caseId: def.id, adjId: a.id, decision: 'rejected', note: rejectNote } })), 'Adjustments rejected')) setRejectNote(''); }}>Reject</button>
+                <ActionButton className="btn ghost" disabled={rejectNote.trim().length < 5} onRun={() => { if (run(fs.pending.filter(canDecide).map((a) => ({ type: 'case.adjust.decide' as const, payload: { caseId: def.id, adjId: a.id, decision: 'rejected', note: rejectNote } })), 'Adjustments rejected')) setRejectNote(''); }}>Reject</ActionButton>
               </div>
             </div>
           ) : <div className="small muted">{actor.role === 'preparer' ? `Switch the demo role to a ${fs.pendingApprover} to approve.` : `Your role cannot approve these (${fs.pendingApprover} needed, and nobody approves their own work).`}</div>}
         </div>
       )}
 
-      <div className="flow-actions">
-        <button className="btn ghost" onClick={onBack}>Back</button>
-        <button className="btn primary" onClick={onNext}>Next: send</button>
-      </div>
+      <ActionBar onBack={onBack}><button className="btn primary" onClick={onNext}>Next: send</button></ActionBar>
     </Section>
   );
 }
@@ -266,7 +275,7 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
     return (
       <Section title="Done">
         {cs.resolution && <div className="decision"><strong>{OUTCOME_LABEL[cs.resolution.outcome]}</strong>: {cs.resolution.rationale}<div className="small muted">Prepared by <Person id={cs.resolution.by} /> · approved by <Person id={cs.resolution.approvedBy} /> {fmtDate(cs.resolution.approvedAt)}</div></div>}
-        {fs.staleSignoff && <p className="neg">The sign-off is stale. Reopen the case in <a href={`#/case/${def.id}?view=full`}>full details</a>.</p>}
+        {fs.staleSignoff && <p className="neg">The sign-off is stale. Reopen the case in <a href={`#/case/${def.id}?view=full&from=4`}>full details</a>.</p>}
       </Section>
     );
   }
@@ -286,7 +295,7 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
       {unasked.length ? (
         <ul className="plain">{unasked.map((q) => (
           <li key={q} className="row-wrap"><span>{q}</span>
-            <button className="btn small" disabled={!staff} onClick={() => run({ type: 'case.question', payload: { caseId: def.id, qid: `q-${Date.now().toString(36)}`, to: 'client', toWho: 'cu-01', text: q, expected: 'Answer and supporting document if available' } }, 'Question sent to client')}>Ask the client</button>
+            <ActionButton className="btn small" disabled={!staff} onRun={() => run({ type: 'case.question', payload: { caseId: def.id, qid: `q-${Date.now().toString(36)}`, to: 'client', toWho: 'cu-01', text: q, expected: 'Answer and supporting document if available' } }, 'Question sent to client')}>Ask the client</ActionButton>
           </li>))}
         </ul>
       ) : clientQs.length === 0 && <p className="small muted">No client question is needed for this case.</p>}
@@ -304,10 +313,9 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
       {blockers.length ? <ul className="blockers small">{blockers.map((b) => <li key={b}>{b}</li>)}</ul> : <p className="small pos">Nothing is missing. You can submit.</p>}
       {fs.pending.length > 0 && <p className="waiting small">Waiting for {fs.pendingApprover} approval of {fs.pending.length} adjustment(s).</p>}
 
-      <div className="flow-actions">
-        <button className="btn ghost" onClick={onBack}>Back</button>
-        <button className="btn primary" disabled={!staff || blockers.length > 0} onClick={() => { if (run({ type: 'case.propose', payload: { caseId: def.id, outcome, rationale } }, 'Decision submitted for approval')) setRationale(''); }}>Submit for approval</button>
-      </div>
+      <ActionBar onBack={onBack}>
+        <ActionButton className="btn primary" disabled={!staff || blockers.length > 0} onRun={() => { if (run({ type: 'case.propose', payload: { caseId: def.id, outcome, rationale } }, 'Decision submitted for approval')) setRationale(''); }}>Submit for approval</ActionButton>
+      </ActionBar>
     </Section>
   );
 }
@@ -327,11 +335,21 @@ function StepReview({ def, fs }: { def: CaseDef; fs: FlowState }) {
       {cs.links.length ? <div className="refs">{cs.links.map((l) => <Ref key={l.ref} r={l.ref} compact />)}</div> : <p className="small muted">No records linked.</p>}
       {cs.questions.filter((q) => q.answer).map((q) => <p key={q.id} className="small">Client answer: {q.answer!.text}</p>)}
       {fs.staleProposal && <p className="neg small">The evidence changed after submission, so approval will be refused. Return it with a reason.</p>}
-      <div className="flow-actions">
-        <button className="btn primary" onClick={() => run({ type: 'case.resolve', payload: { caseId: def.id } }, 'Approved and resolved')}>Approve & sign off</button>
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason to return" aria-label="Reason to return" />
-        <button className="btn ghost" onClick={() => run({ type: 'case.return', payload: { caseId: def.id, reason } }, 'Returned to preparer')}>Return to preparer</button>
-      </div>
+      <label className="small" htmlFor="flow-return">Reason, if you return it to the preparer</label>
+      <input id="flow-return" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason to return" aria-label="Reason to return" />
+      <ActionBar extra={<ActionButton className="btn ghost" onRun={() => run({ type: 'case.return', payload: { caseId: def.id, reason } }, 'Returned to preparer')}>Return to preparer</ActionButton>}>
+        <ActionButton className="btn primary" onRun={() => run({ type: 'case.resolve', payload: { caseId: def.id } }, 'Approved and resolved')}>Approve & sign off</ActionButton>
+      </ActionBar>
     </Section>
+  );
+}
+
+/** The same action row on every step: Back on the left, the primary action always on the right. */
+function ActionBar({ onBack, extra, children }: { onBack?: () => void; extra?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="action-bar">
+      {onBack ? <button className="btn ghost" onClick={onBack}>Back</button> : <span />}
+      <div className="action-bar-r">{extra}{children}</div>
+    </div>
   );
 }

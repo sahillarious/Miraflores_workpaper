@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../ui/context';
+import { useRoute } from '../ui/router';
 import { DocPage } from '../ui/DocPage';
 import { EffectView, Origin, Person, Prio, Ref, Refs, Section, StatusPill, fmtDate, money } from '../ui/components';
 import { RECON_PLAIN } from '../ui/labels';
@@ -15,12 +16,15 @@ import { CopilotPanel } from './CopilotPanel';
 
 export function CaseView({ id }: { id: string }) {
   const { defsById, defs } = useApp();
+  const route = useRoute();
   const def = defsById.get(id);
   if (!def) return <div className="page"><h1>Case not found</h1><a href="#/queue">Back to queue</a></div>;
   const idx = defs.findIndex((d) => d.id === id);
   const prev = defs[idx - 1], next = defs[idx + 1];
+  const from = Number(route.query.get('from'));
   return (
     <div className="page case-page">
+      <a className="btn primary back-guided" href={`#/case/${def.id}${from >= 1 && from <= 4 ? `?step=${from}` : ''}`}>← Back to guided steps{from >= 1 && from <= 4 ? ` (step ${from})` : ''}</a>
       <div className="crumbs">
         <a href="#/queue">Review queue</a> / <span className="mono">{def.id}</span>
         <span className="crumb-nav">

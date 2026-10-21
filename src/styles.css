@@ -375,3 +375,8 @@ details.sub { margin-left: 14px; }
   .flow-checklist .small.muted { display: none; }
   .flow-checklist .ci-label { font-size: 13px; }
 }
+@media (max-width: 900px) {
+  .topbar { position: static; }
+  .flow-side { top: 0; }
+  .toasts { left: 16px; right: 16px; max-width: none; }
+}

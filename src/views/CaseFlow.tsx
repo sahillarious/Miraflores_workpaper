@@ -208,9 +208,11 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
             </table>
           </div>
           <div className="flow-actions">
-            <button className="btn primary" disabled={!staff || !proposable.length || cs.status === 'resolved'} onClick={() => run(proposable.map((x) => cmd(x.i)), `Proposed ${proposable.length} adjustment(s)`)}>
-              {proposable.length === def.suggestions.length ? 'Propose all' : `Propose remaining (${proposable.length})`}
-            </button>
+            {proposable.length > 0 && (
+              <button className="btn primary" disabled={!staff || cs.status === 'resolved'} onClick={() => run(proposable.map((x) => cmd(x.i)), `Proposed ${proposable.length} adjustment(s)`)}>
+                {proposable.length === def.suggestions.length ? 'Propose all' : `Propose remaining (${proposable.length})`}
+              </button>
+            )}
             {!proposable.length && <span className="small muted">Every suggested change is already proposed or approved. An identical adjustment cannot be proposed twice.</span>}
           </div>
           <p className="small muted">Effects are estimates: the change times the return’s tax-effect rates. Lots sold while living in California use the California-source rate.</p>

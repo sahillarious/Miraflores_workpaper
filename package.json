@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:e2e": "node scripts/e2e.mjs",
+    "test:e2e:flow": "node scripts/e2e-flow.mjs",
     "start": "tsx server/index.ts",
     "eval:copilot": "tsx eval/run.ts"
   },

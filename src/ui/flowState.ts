@@ -37,7 +37,7 @@ export function flowState(ix: PacketIndex, def: CaseDef, st: WorkState): FlowSta
   const docLinks = cs.links.filter((l) => DOCUMENTARY_KINDS.includes(refKind(l.ref))).length;
   const evidence: CheckItem = cs.links.length
     ? { id: 'evidence', label: 'Evidence linked', state: 'done', detail: `${cs.links.length} linked (${docLinks} documentary)` }
-    : { id: 'evidence', label: 'Evidence linked', state: 'todo', detail: 'Nothing linked yet' };
+    : { id: 'evidence', label: 'Evidence linked', state: 'todo', detail: def.suggestions.length ? 'Nothing linked yet (not needed for a correction backed by approved adjustments)' : 'Nothing linked yet' };
 
   const clientQs = cs.questions.filter((q) => q.to === 'client');
   const unanswered = clientQs.filter((q) => !q.answer).length;

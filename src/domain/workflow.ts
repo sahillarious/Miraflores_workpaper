@@ -357,6 +357,8 @@ export function authorize(ix: PacketIndex, defs: Map<string, CaseDef>, st: WorkS
       if (!line0(ix, p.lineKey)) return `Line ${p.lineKey} is not on the ${ix.current.version} return.`;
       if (!String(p.reason ?? '').trim()) return 'Give the reason for the adjustment.';
       if (!isFinite(p.to)) return 'Enter the adjusted value.';
+      const dup = cs.adjustments.find((a) => a.lineKey === p.lineKey && a.to === Number(p.to) && a.decision?.status !== 'rejected');
+      if (dup) return `An identical adjustment (${p.lineKey} to ${dup.to}) is already ${dup.decision ? 'approved' : 'awaiting approval'}.`;
       return null;
     }
     case 'case.adjust.decide': {

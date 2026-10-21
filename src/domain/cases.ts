@@ -63,6 +63,8 @@ export interface CaseDef {
   reconciliations: Reconciliation[];
   effect?: Effect;
   suggested?: SuggestedAdjustment;
+  /** Every deterministic adjustment the check suggests (one per lot for RSU). Defaults to [suggested]. */
+  suggestions: SuggestedAdjustment[];
   allowedOutcomes: Outcome[];
   /** Outcomes that require linked documentary (non-client-statement) evidence. */
   documentaryFor: Outcome[];
@@ -74,8 +76,8 @@ export interface CaseDef {
   priority: 'P1' | 'P2' | 'P3';
 }
 
-type Draft = Omit<CaseDef, 'priorityScore' | 'priorityBasis' | 'priority' | 'allowedOutcomes' | 'documentaryFor' | 'defaultOwner' | 'facts' | 'conflicts' | 'openQuestions' | 'reconciliations' | 'lines'> &
-  Partial<Pick<CaseDef, 'allowedOutcomes' | 'documentaryFor' | 'defaultOwner' | 'facts' | 'conflicts' | 'openQuestions' | 'reconciliations' | 'lines'>>;
+type Draft = Omit<CaseDef, 'priorityScore' | 'priorityBasis' | 'priority' | 'allowedOutcomes' | 'documentaryFor' | 'defaultOwner' | 'facts' | 'conflicts' | 'openQuestions' | 'reconciliations' | 'lines' | 'suggestions'> &
+  Partial<Pick<CaseDef, 'allowedOutcomes' | 'documentaryFor' | 'defaultOwner' | 'facts' | 'conflicts' | 'openQuestions' | 'reconciliations' | 'lines' | 'suggestions'>>;
 
 const money = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -95,6 +97,7 @@ function finish(d: Draft): CaseDef {
     facts: [], conflicts: [], openQuestions: [], reconciliations: [], lines: [],
     allowedOutcomes: DEFAULT_OUTCOMES, documentaryFor: ['corrected', 'substantiated'], defaultOwner: 'st-01',
     ...d,
+    suggestions: d.suggestions ?? (d.suggested ? [d.suggested] : []),
     priorityScore: score,
     priorityBasis: basis,
     priority: score >= 80 ? 'P1' : score >= 45 ? 'P2' : 'P3',
@@ -517,6 +520,11 @@ function rsuBasis(ix: PacketIndex): Draft | null {
         effect: estimateEffect(ix, [parts[0]]),
       };
     })(),
+    // One adjustment per lot: the line's value is the lot's gain, so the new gain is gain minus the D11 basis.
+    suggestions: lots.map((l, i) => {
+      const gain = num(lineValue(ix, l.key));
+      return { lineKey: l.key, from: gain, to: round2(gain - l.basis), reason: `Apply supplemental adjusted basis ${money(l.basis)} (D11)`, effect: estimateEffect(ix, [parts[i]]) };
+    }),
   };
 }
 

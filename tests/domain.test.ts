@@ -248,3 +248,49 @@ describe('workpaper findings (computed from packet)', () => {
     expect(res).toMatchObject({ 'w2-box1': true, 'excess-ss': true, agi: true, 'bsum-D74': true, 'bsum-D28': true, scorp: true, 'irs-est': false, 'ftb-est': false, 'bsum-D31': false, 'read-vs-printed': false });
   });
 });
+
+describe('per-lot suggestions and duplicate adjustments', () => {
+  const rsu = () => byId.get('WP-RSU-BASIS')!;
+
+  it('suggests one adjustment per RSU lot: the gain drops by the D11 basis', () => {
+    expect(rsu().suggestions.map((s) => [s.lineKey, s.from, s.to, s.effect.federal, s.effect.california])).toEqual([
+      ['F8949.B.N1', 19240, 140, -6647, -1222],
+      ['F8949.B.N3', 18480, -620, -6647, -1222],
+      ['F8949.E.N4', 15300, 5880, -2242, -320],
+    ]);
+    // The single suggestion and the case-level estimate are unchanged.
+    expect(rsu().suggested).toMatchObject({ lineKey: 'F8949.B.N1', from: 19240, to: 140, effect: { federal: -6647, california: -1222 } });
+    expect(rsu().effect).toMatchObject({ federal: -15536, california: -2765 });
+  });
+
+  it('defaults suggestions to the single suggested adjustment for other cases', () => {
+    for (const d of defs) {
+      if (d.id === 'WP-RSU-BASIS') continue;
+      expect(d.suggestions).toEqual(d.suggested ? [d.suggested] : []);
+    }
+  });
+
+  it('refuses an identical pending or approved adjustment, but allows one after a rejection', () => {
+    const wp = fresh();
+    const s = rsu().suggestions[0];
+    const adj = (adjId: string) => ({ type: 'case.adjust' as const, payload: { caseId: rsu().id, adjId, lineKey: s.lineKey, from: s.from, to: s.to, reason: s.reason, federal: s.effect.federal, california: s.effect.california } });
+    ok(wp.dispatch(priya, adj('a1')));
+    expect((wp.dispatch(priya, adj('a2')) as any).error).toMatch(/identical adjustment.*awaiting approval/);
+    ok(wp.dispatch(helen, { type: 'case.adjust.decide', payload: { caseId: rsu().id, adjId: 'a1', decision: 'approved', note: 'Agreed to D11' } }));
+    expect((wp.dispatch(priya, adj('a3')) as any).error).toMatch(/identical adjustment.*already approved/);
+    // A different value on the same line is not a duplicate.
+    ok(wp.dispatch(priya, { ...adj('a4'), payload: { ...adj('a4').payload, to: 141 } }));
+    ok(wp.dispatch(helen, { type: 'case.adjust.decide', payload: { caseId: rsu().id, adjId: 'a4', decision: 'rejected', note: 'Typo' } }));
+    ok(wp.dispatch(priya, { ...adj('a5'), payload: { ...adj('a5').payload, to: 141 } }));
+  });
+
+  it('proposes all three lots as one batch that a single undo removes', () => {
+    const wp = fresh();
+    const r = wp.dispatch(priya, rsu().suggestions.map((s, i) => ({ type: 'case.adjust' as const, payload: { caseId: rsu().id, adjId: `lot-${i}`, lineKey: s.lineKey, from: s.from, to: s.to, reason: s.reason, federal: s.effect.federal, california: s.effect.california } })));
+    ok(r);
+    expect(wp.state.cases[rsu().id].adjustments).toHaveLength(3);
+    expect(caseFacts(ix, rsu(), wp.state).needsPartner).toBe(true);
+    ok(wp.undo(priya, (r as any).events[0].id));
+    expect(wp.state.cases[rsu().id].adjustments).toHaveLength(0);
+  });
+});

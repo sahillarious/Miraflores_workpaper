@@ -88,7 +88,13 @@ export function HelpPanel({ def, open, step, onClose }: { def: CaseDef; open: bo
             </>
           )}
           {terms.length > 0 && (
-            <details className="help-glossary">
+            <details className="help-glossary" onToggle={(e) => {
+              // Bring the terms into view once the disclosure has finished expanding (200ms, or at once with reduced motion).
+              const d = e.currentTarget;
+              if (!d.open) return;
+              const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+              setTimeout(() => d.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' }), still ? 0 : 220);
+            }}>
               <summary>What do these words mean?</summary>
               <dl>{terms.map((t) => <div key={t.id}><dt>{t.term}</dt><dd>{t.definition}</dd></div>)}</dl>
             </details>

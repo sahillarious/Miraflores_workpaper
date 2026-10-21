@@ -10,6 +10,7 @@ import { refKind } from '../domain/refs';
 import { plainSummary } from '../domain/plain';
 import { closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
 import type { CaseDef, Outcome, Reconciliation } from '../domain/cases';
+import type { PacketIndex } from '../domain/packetIndex';
 
 // Guided four-step view of a case. It is only a presentation layer: every
 // action dispatches the same commands as the full view, through the same
@@ -103,10 +104,18 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
   );
 }
 
-/** The record to show first: the source side of the first comparison, else the first document value. */
-function keySource(def: CaseDef): string | undefined {
-  const fromRecon = def.reconciliations.flatMap((r) => r.b.refs).find((r) => ['ev', 'docpage'].includes(refKind(r)));
-  return fromRecon ?? def.refs.find((r) => ['ev', 'docpage', 'doc'].includes(refKind(r)));
+/**
+ * The record to show first. Highlighting one field is only useful if it is the
+ * one the case is about, so: a numeric value the case's own comparison uses,
+ * else the source side of a comparison, else the first numeric value, else any record.
+ */
+function keySource(ix: PacketIndex, def: CaseDef): string | undefined {
+  const numeric = (r: string) => refKind(r) === 'ev' && typeof ix.evs.get(r)?.value === 'number';
+  const inRecon = new Set(def.reconciliations.flatMap((r) => [...r.a.refs, ...r.b.refs]));
+  return def.refs.find((r) => numeric(r) && inRecon.has(r))
+    ?? def.reconciliations.flatMap((r) => r.b.refs).find((r) => ['ev', 'docpage'].includes(refKind(r)))
+    ?? def.refs.find(numeric)
+    ?? def.refs.find((r) => ['ev', 'docpage', 'doc'].includes(refKind(r)));
 }
 
 function SourcePreview({ r }: { r?: string }) {
@@ -130,7 +139,7 @@ function StepWhat({ def, onNext, onHelp }: { def: CaseDef; onNext: () => void; o
         </div>
       ) : <p className="flow-effect no-estimate">{noEstimateSentence(def)}</p>}
       <h4>Where it comes from</h4>
-      <SourcePreview r={keySource(def)} />
+      <SourcePreview r={keySource(useApp().ix, def)} />
       <details className="small show-details">
         <summary>Show details</summary>
         <p><strong>Why it was flagged:</strong> {def.why}</p>

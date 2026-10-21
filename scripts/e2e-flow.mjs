@@ -17,8 +17,8 @@ const browser = await chromium.launch({ executablePath: exe, headless: true });
 const results = [];
 const errors = [];
 
-async function newPage(width = Number(process.env.WIDTH ?? 1440)) {
-  const ctx = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 950 } });
+async function newPage(width = Number(process.env.WIDTH ?? 1440), opts = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 950 }, ...opts });
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -29,7 +29,7 @@ const see = (page, t) => page.getByText(t, { exact: false }).first().waitFor({ t
 const as = (page, id) => page.getByLabel('Act as').selectOption(id);
 const open = async (page, hash) => { await page.goto(BASE + hash); await page.waitForTimeout(150); };
 const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true }); };
-const checklist = (page, label) => page.locator('.flow-checklist li', { hasText: label });
+const checklist = (page, label) => page.locator('.flow-side .flow-checklist li', { hasText: label });
 
 async function journey(name, fn) {
   try { await fn(); results.push(['PASS', name]); return true; } catch (e) { results.push(['FAIL', name, String(e).split('\n')[0]]); return false; }
@@ -165,6 +165,141 @@ await journey('(g) nobody approves their own work', async () => {
   await open(g, '#/case/WP-MILEAGE-DUP?view=full');
   await g.getByRole('button', { name: 'Approve', exact: true }).first().click();
   await see(g, 'may not approve their own adjustment');
+});
+
+// ---- help panel ----------------------------------------------------------------
+const W = Number(process.env.WIDTH ?? 1440);
+const panelOpen = (pg) => pg.locator('.help-root.open').count();
+const focusedText = (pg) => pg.evaluate(() => document.activeElement?.textContent?.trim() ?? '');
+
+await journey('(h-a) the help panel opens from each of the four steps, Esc closes it and focus returns', async () => {
+  const h = await newPage();
+  const configured = await h.evaluate(async () => (await (await fetch('./api/copilot/status')).json()).configured).catch(() => false);
+  for (const step of [1, 2, 3, 4]) {
+    await open(h, `#/case/WP-DEPENDENT-TIN?step=${step}`);
+    await see(h, `Step ${step} of 4`);
+    const trigger = step === 1 ? h.getByRole('button', { name: 'I need help' }) : h.getByRole('button', { name: 'Need help?' });
+    await trigger.click();
+    await h.getByRole('dialog', { name: 'How can we help with this case?' }).waitFor({ timeout: 3000 });
+    if (!(await focusedText(h)).startsWith('How can we help')) throw new Error(`step ${step}: focus not on the panel title`);
+    if (step === 1) {
+      // Tab stays inside the panel.
+      for (let i = 0; i < 25; i++) await h.keyboard.press('Tab');
+      if (!(await h.evaluate(() => !!document.activeElement?.closest('.help-drawer')))) throw new Error('focus escaped the panel');
+      const ai = h.getByRole('button', { name: 'Get an AI second look' });
+      if ((await ai.isDisabled()) === configured) throw new Error(`AI card disabled=${await ai.isDisabled()} but copilot configured=${configured}`);
+      await h.getByText('What do these words mean?').click();
+      await see(h, 'A Social Security number (SSN)');
+      await shot(h, 'help-ssn-glossary');
+      await h.getByText('What do these words mean?').click();
+      await shot(h, 'help-ssn');
+    }
+    await h.keyboard.press('Escape');
+    await h.waitForTimeout(250);
+    if (await panelOpen(h)) throw new Error(`step ${step}: panel still open after Esc`);
+    const f = await focusedText(h);
+    if (f !== (step === 1 ? 'I need help' : 'Need help?')) throw new Error(`step ${step}: focus returned to "${f}"`);
+  }
+  // Backdrop click also closes (desktop only; on phones the sheet covers the backdrop).
+  if (W > 900) {
+    await h.getByRole('button', { name: 'Need help?' }).click();
+    await h.mouse.click(40, 400);
+    await h.waitForTimeout(250);
+    if (await panelOpen(h)) throw new Error('backdrop click did not close the panel');
+  }
+});
+
+await journey('(h-b) a client question sent from the panel appears in history; status follows the existing command', async () => {
+  const h = await newPage();
+  await open(h, '#/case/ENG-DIGITAL_ASSET_BASIS_MISSING');
+  await h.getByRole('button', { name: 'Need help?' }).click();
+  const box = h.getByLabel('Question', { exact: true });
+  const pre = await box.inputValue();
+  if (!pre.startsWith('Can the client upload the bank statement')) throw new Error(`not prefilled from the open question: "${pre}"`);
+  await h.getByRole('button', { name: 'Send to the client' }).click();
+  await see(h, 'Sent. The case is now waiting for the client.');
+  await shot(h, 'help-confirmation');
+  await h.getByRole('button', { name: 'Back to the steps' }).click();
+  await see(h, 'Awaiting client');
+  if (!(await checklist(h, 'Client answered').textContent()).includes('waiting for the client')) throw new Error('checklist not updated');
+  const log = await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'));
+  if (log.length !== 1 || log[0].type !== 'case.question' || log[0].payload.to !== 'client') throw new Error(`unexpected log ${JSON.stringify(log.map((e) => e.type))}`);
+  await open(h, '#/case/ENG-DIGITAL_ASSET_BASIS_MISSING?view=full');
+  await see(h, 'case.question');
+});
+
+await journey('(h-c) ask a colleague sends a staff question and leaves the status alone', async () => {
+  const h = await newPage();
+  await open(h, '#/case/WP-HVAC');
+  await h.getByRole('button', { name: 'Need help?' }).click();
+  await h.getByLabel('Who').selectOption('st-02');
+  await h.getByLabel('Your question').fill('Is the HVAC a repair or an improvement in your view?');
+  await h.getByRole('button', { name: 'Send to Daniel' }).click();
+  await see(h, 'Sent to Daniel Ortiz');
+  await h.getByRole('button', { name: 'Back to the steps' }).click();
+  if (!(await h.locator('.flow-head .pill').first().textContent()).includes('Open')) throw new Error('status changed');
+  await open(h, '#/case/WP-HVAC?view=full');
+  await see(h, 'To Daniel Ortiz');
+});
+
+await journey('(h-d) mark as blocked requires a reason', async () => {
+  const h = await newPage();
+  await open(h, '#/case/WP-HVAC');
+  await h.getByRole('button', { name: 'Need help?' }).click();
+  await h.getByRole('button', { name: 'Mark as blocked' }).click();
+  await see(h, 'Say what the case is blocked on.');
+  const keys = await h.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('mf-workpaper:')).map((k) => JSON.parse(localStorage.getItem(k) ?? '[]').length));
+  if (keys.some((n) => n > 0)) throw new Error('an event was recorded without a reason');
+  await h.getByLabel('What is it blocked on? (required)').fill('Waiting for the contractor invoice detail');
+  await h.getByRole('button', { name: 'Mark as blocked' }).click();
+  await see(h, 'Marked as blocked');
+  await h.getByRole('button', { name: 'Back to the steps' }).click();
+  if (!(await h.locator('.flow-head .pill').first().textContent()).includes('Blocked')) throw new Error('status is not Blocked');
+  await h.getByRole('button', { name: 'Need help?' }).click();
+  await see(h, 'Not available right now: Cannot move from Blocked to Blocked');
+});
+
+await journey('(h-e) the client role never sees the help panel', async () => {
+  const h = await newPage();
+  await as(h, 'cu-01');
+  await open(h, '#/case/WP-DEPENDENT-TIN');
+  await see(h, 'Hello Ngozi');
+  if (await h.getByRole('button', { name: 'Need help?' }).count()) throw new Error('client sees "Need help?"');
+  if (await h.locator('.help-root').count()) throw new Error('help panel is in the client DOM');
+});
+
+await journey('(h-f) with prefers-reduced-motion, no transitions run', async () => {
+  const still = await newPage(W, { reducedMotion: 'reduce' });
+  const moving = await newPage(W);
+  const probe = async (pg) => {
+    await open(pg, '#/case/WP-RSU-BASIS?step=1');
+    await pg.getByRole('button', { name: 'Yes, that’s right' }).click();
+    return pg.evaluate(() => ({
+      step: getComputedStyle(document.querySelector('.step-anim')).animationName,
+      drawer: getComputedStyle(document.querySelector('.help-drawer')).transitionDuration,
+      fill: getComputedStyle(document.querySelector('.progress-fill')).transitionDuration,
+    }));
+  };
+  const r = await probe(still), m = await probe(moving);
+  if (r.step !== 'none' || r.drawer !== '0s' || r.fill !== '0s') throw new Error(`reduced motion still animates: ${JSON.stringify(r)}`);
+  if (m.step !== 'step-in-fwd' || m.drawer === '0s') throw new Error(`control run did not animate: ${JSON.stringify(m)}`);
+  // A mid-transition frame for the screenshot set.
+  await open(moving, '#/case/WP-RSU-BASIS?step=1');
+  await moving.getByRole('button', { name: 'Yes, that’s right' }).click();
+  await moving.waitForTimeout(60);
+  if (OUT) await moving.screenshot({ path: `${OUT}/transition-mid.png` });
+});
+
+await journey('(h-g) Deep dive opens full details and "Back to guided steps" returns to the same step', async () => {
+  const h = await newPage();
+  await open(h, '#/case/WP-RSU-BASIS?step=3');
+  await h.getByRole('button', { name: 'Need help?' }).click();
+  await shot(h, 'help-rsu');
+  await h.getByText('Deep dive: see the whole case').click();
+  await see(h, 'Back to guided steps (step 3)');
+  if (!h.url().includes('view=full&from=3')) throw new Error(`url ${h.url()}`);
+  await h.getByRole('link', { name: '← Back to guided steps (step 3)' }).click();
+  await see(h, 'Step 3 of 4');
 });
 
 await browser.close();

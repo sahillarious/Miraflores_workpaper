@@ -37,13 +37,17 @@ export const GLOSSARY: GlossaryTerm[] = [
   { id: 'ca-source', term: 'California-source income', definition: 'Income California can tax even from someone who no longer lives there, such as pay for work done in California.', match: /California-source|California income/i },
   { id: '8867', term: 'Form 8867', definition: 'A paid preparer’s due-diligence checklist for certain credits, kept with the return.', match: /8867|due.diligence/i },
   { id: 'ira-basis', term: 'IRA basis', definition: 'Money in a traditional IRA that was already taxed (nondeductible contributions). It is not taxed again when converted or withdrawn; it is tracked on Form 8606.', match: /\bIRA\b/ },
-  { id: 'fx', term: 'Exchange rate for foreign income', definition: 'Foreign income must be reported in dollars; a yearly average rate for the tax year is commonly used for income received through the year.', match: /exchange rate|average rate|Swedish|\bSEK\b/i, check: true },
+  // check: kept deliberately general. Which rate to use (a yearly average or the rate on the day the
+  // income was received) is not stated here; a tax professional should confirm before adding it.
+  { id: 'fx', term: 'Exchange rate for foreign income', definition: 'Foreign income is reported in US dollars. The exchange rate used to convert it should be for the same year as the income.', match: /exchange rate|average rate|Swedish|\bSEK\b/i, check: true },
   { id: '1099nec', term: 'Form 1099-NEC', definition: 'A form a business files to report payments to an independent contractor above a set threshold.', match: /1099-NEC/ },
   { id: '1099da', term: 'Form 1099-DA', definition: 'A broker’s statement of sales of digital assets such as cryptocurrency.', match: /1099-DA|digital-asset|digital asset|bitcoin|crypto/i },
   { id: 'mileage', term: 'Business mileage', definition: 'Miles driven for business. The deduction is usually the miles times the IRS standard mileage rate.', match: /mileage|business miles/i },
   { id: 'proration', term: 'Property tax proration', definition: 'Splitting a year’s property tax between seller and buyer according to the days each owned the home, usually settled at closing.', match: /property tax|seller's share|closing credit/i },
   { id: 'dependent', term: 'Dependent', definition: 'A person, often a child, the taxpayer can claim on the return, which can qualify the taxpayer for certain credits.', match: /\bdependents?\b/i },
-  { id: 'letter566', term: 'Letter 566', definition: 'An IRS letter that opens an examination by mail and asks for documents.', match: /Letter 566|examination letter/i, check: true },
+  // check: wording follows the packet (a "correspondence examination" letter) and the brief; not
+  // verified against the IRS's own description of Letter 566.
+  { id: 'letter566', term: 'Letter 566', definition: 'An IRS letter asking for documents that support items on a return that is under examination.', match: /Letter 566|examination letter/i, check: true },
   { id: '3520', term: 'Form 3520', definition: 'The form used to report large gifts or inheritances from foreign persons, and dealings with foreign trusts.', match: /3520|foreign inheritance/i },
   { id: 'engine', term: 'Tax software (the engine)', definition: 'The program that computed this return. Its figures are snapshots; this workpaper checks them against the source documents.', match: /tax software|\bengine\b/i },
 ];

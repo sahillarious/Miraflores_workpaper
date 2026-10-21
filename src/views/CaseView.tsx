@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../ui/context';
 import { DocPage } from '../ui/DocPage';
-import { EffectView, Origin, Person, Prio, Ref, Refs, Section, SevPill, StatusPill, fmtDate, money } from '../ui/components';
+import { EffectView, Origin, Person, Prio, Ref, Refs, Section, StatusPill, fmtDate, money } from '../ui/components';
+import { RECON_PLAIN } from '../ui/labels';
 import { refKind, refKindLabel, resolveRef } from '../domain/refs';
 import { lineValue, num } from '../domain/packetIndex';
 import {
@@ -44,7 +45,7 @@ function CaseHeader({ def }: { def: CaseDef }) {
   return (
     <div className="case-h">
       <div className="case-h-l">
-        <div className="case-tags"><Prio d={def} /> <SevPill s={def.severity} /> <StatusPill s={cs.status} /> <Origin d={def} /> <span className="tag">{def.area}</span> <span className="tag">{def.jurisdiction}</span></div>
+        <div className="case-tags"><Prio d={def} /> <StatusPill s={cs.status} /> <Origin d={def} /> <span className="tag">{def.area}</span> <span className="tag">{def.jurisdiction}</span></div>
         <h1>{def.title}</h1>
         {f.staleSignoff && <div className="banner warn">Sign-off is stale: evidence, dispositions or answers changed after this case was approved. Reopen and reconsider.</div>}
       </div>
@@ -220,7 +221,7 @@ function ReconInspector({ def, r }: { def: CaseDef; r: Reconciliation }) {
   const diff = numeric ? (r.a.value as number) - (r.b.value as number) : null;
   const unit = (v: number | string | null) => (typeof v === 'number' ? (r.unit === 'USD' ? money(v, { cents: !Number.isInteger(v) }) : `${v.toLocaleString()} ${r.unit}`) : v ?? '—');
   return (
-    <Section title={<>Reconciliation · {r.title}</>} right={<span className={`pill rc-${cur?.status ?? 'unchecked'}`}>{RECON_LABEL[cur?.status ?? 'unchecked']}</span>}>
+    <Section title={<>Evidence check · {r.title}</>} right={<span className={`pill rc-${cur?.status ?? 'unchecked'}`} title={`Reconciliation: ${RECON_LABEL[cur?.status ?? 'unchecked']}`}>{RECON_PLAIN[cur?.status ?? 'unchecked']}</span>}>
       <div className="recon">
         <div className="side"><div className="side-l">A · {r.a.label}</div><div className="side-v">{unit(r.a.value)}</div>{r.a.note && <div className="small muted">{r.a.note}</div>}<Refs refs={r.a.refs} compact max={3} /></div>
         <div className="vs">{numeric ? <><div className="small muted">A − B</div><div className={`side-v ${diff ? 'neg' : 'pos'}`}>{diff === 0 ? '0' : unit(diff)}</div></> : <div className="small muted">{r.comparable ? 'compare' : 'not numerically comparable'}</div>}</div>
@@ -228,13 +229,13 @@ function ReconInspector({ def, r }: { def: CaseDef; r: Reconciliation }) {
       </div>
       <p className="small"><strong>Expected:</strong> {r.expectation}</p>
       {r.finding && <p className="small"><strong>What the evidence shows:</strong> {r.finding}</p>}
-      {cur && <p className="small">Conclusion: <strong>{RECON_LABEL[cur.status]}</strong> — {cur.note} <span className="muted">(<Person id={cur.by} />, {fmtDate(cur.at)})</span></p>}
+      {cur && <p className="small">Conclusion: <strong title={RECON_LABEL[cur.status]}>{RECON_PLAIN[cur.status]}</strong> — {cur.note} <span className="muted">(<Person id={cur.by} />, {fmtDate(cur.at)})</span></p>}
       <div className="inline-form">
-        <select value={status} onChange={(e) => setStatus(e.target.value as ReconStatus)} aria-label="Reconciliation status">
-          {(Object.keys(RECON_LABEL) as ReconStatus[]).map((s) => <option key={s} value={s}>{RECON_LABEL[s]}</option>)}
+        <select value={status} onChange={(e) => setStatus(e.target.value as ReconStatus)} aria-label="Evidence check result">
+          {(Object.keys(RECON_LABEL) as ReconStatus[]).map((s) => <option key={s} value={s}>{RECON_PLAIN[s]}</option>)}
         </select>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="How was this concluded?" aria-label="Reconciliation note" />
-        <button className="btn" onClick={() => { if (run({ type: 'case.recon', payload: { caseId: def.id, recId: r.id, status, note } }, 'Reconciliation recorded')) setNote(''); }}>Record</button>
+        <button className="btn" onClick={() => { if (run({ type: 'case.recon', payload: { caseId: def.id, recId: r.id, status, note } }, 'Evidence check recorded')) setNote(''); }}>Record</button>
       </div>
     </Section>
   );
@@ -476,6 +477,6 @@ function describe(p: any): string {
   if (p.ref) return `${p.ref}${p.why ? ` — ${p.why}` : ''}`;
   if (p.text) return String(p.text).slice(0, 100);
   if (p.reason) return p.reason;
-  if (p.status) return `${p.recId}: ${RECON_LABEL[p.status as ReconStatus]}`;
+  if (p.status) return `${p.recId}: ${RECON_PLAIN[p.status as ReconStatus]}`;
   return '';
 }

@@ -66,10 +66,10 @@ await check('link evidence and record reconciliation', async () => {
   await page.getByPlaceholder('Why it supports the conclusion').fill('Unread page with lot M18 (proceeds 250)');
   await page.getByRole('button', { name: 'Link', exact: true }).click();
   await expectText('linked to decision');
-  await page.getByLabel('Reconciliation status').first().selectOption('explained');
+  await page.getByLabel('Evidence check result').first().selectOption('explained');
   await page.getByPlaceholder('How was this concluded?').first().fill('Difference equals page-32 proceeds');
   await page.getByRole('button', { name: 'Record', exact: true }).first().click();
-  await expectText('Reconciliation recorded');
+  await expectText('Evidence check recorded');
 });
 await check('preparer cannot approve a decision', async () => {
   await page.getByLabel('Outcome', { exact: true }).selectOption('explained_difference');

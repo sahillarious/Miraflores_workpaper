@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../ui/context';
 import { useRoute } from '../ui/router';
-import { EffectView, Origin, Person, Prio, SevPill, StatusPill } from '../ui/components';
+import { EffectView, Origin, Person, Prio, StatusPill } from '../ui/components';
+import { plural, priorityLevel } from '../ui/labels';
 import { allowedTransitions, caseFacts, STATUS_LABEL, type CaseStatus } from '../domain/workflow';
 import { absEffect } from '../domain/effects';
 import type { CaseDef } from '../domain/cases';
@@ -37,7 +38,7 @@ export function Queue() {
       if (origin && d.origin !== origin) return false;
       if (owner && state.cases[d.id].owner !== owner) return false;
       if (juris && d.jurisdiction !== juris && d.jurisdiction !== 'both') return false;
-      if (prio && d.priority !== prio) return false;
+      if (prio && priorityLevel(d) !== prio) return false;
       if (q && !q.toLowerCase().split(/\s+/).every((t) => text(d).includes(t))) return false;
       return true;
     });
@@ -89,9 +90,9 @@ export function Queue() {
           {(Object.keys(STATUS_LABEL) as CaseStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
           <option value="all">All</option>
         </select>
-        <select value={prio} onChange={(e) => setPrio(e.target.value)} aria-label="Priority"><option value="">Any priority</option><option>P1</option><option>P2</option><option>P3</option></select>
+        <select value={prio} onChange={(e) => setPrio(e.target.value)} aria-label="Priority"><option value="">Any priority</option><option>Blocker</option><option>High</option><option>Medium</option><option>Low</option></select>
         <select value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area"><option value="">All areas</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
-        <select value={origin} onChange={(e) => setOrigin(e.target.value)} aria-label="Origin"><option value="">Engine + workpaper</option><option value="engine">Engine diagnostics</option><option value="workpaper">Workpaper checks</option></select>
+        <select value={origin} onChange={(e) => setOrigin(e.target.value)} aria-label="Origin"><option value="">Any source</option><option value="engine">Raised by the tax software</option><option value="workpaper">Found by our checks</option></select>
         <select value={juris} onChange={(e) => setJuris(e.target.value)} aria-label="Jurisdiction"><option value="">Any jurisdiction</option><option value="federal">Federal</option><option value="california">California</option><option value="none">Outside return</option></select>
         <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner"><option value="">Any owner</option>{staff.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
         <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort"><option value="priority">Sort: priority</option><option value="effect">Sort: tax effect</option><option value="recent">Sort: recently changed</option><option value="status">Sort: status</option></select>
@@ -116,7 +117,7 @@ export function Queue() {
         <thead>
           <tr>
             <th><input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(rows.map((r) => r.id)))} aria-label="Select all" /></th>
-            <th>Pri</th><th>Issue · why it matters · next action</th><th>Evidence</th><th>Status</th><th>Owner</th><th className="num">Est. tax effect</th>
+            <th>Priority</th><th>Issue · why it matters · next action</th><th>Records</th><th>Status</th><th>Owner</th><th className="num">Est. tax effect</th>
           </tr>
         </thead>
         <tbody>
@@ -127,14 +128,14 @@ export function Queue() {
             return (
               <tr key={d.id} className={sel.has(d.id) ? 'selected' : ''}>
                 <td><input type="checkbox" checked={sel.has(d.id)} onChange={() => toggle(d.id)} aria-label={`Select ${d.id}`} /></td>
-                <td><Prio d={d} /><div><SevPill s={d.severity} /></div></td>
+                <td><Prio d={d} /></td>
                 <td className="issue">
                   <a href={`#/case/${d.id}`} className="issue-title">{changed && <span className="dot" title="Changed since you last looked" />}{d.title}</a>
                   <div className="small">{d.matters || d.why}</div>
                   <div className="small next">Next: {d.nextAction}</div>
                   <div className="small muted"><Origin d={d} /> · {d.area} · {d.classification.replace(/_/g, ' ')}</div>
                 </td>
-                <td className="small">{d.refs.length} refs{d.reconciliations.length > 0 && <div>{d.reconciliations.length} reconciliation{d.reconciliations.length > 1 ? 's' : ''}</div>}</td>
+                <td className="small" title={d.refs.join(', ')}>{plural(d.refs.length, 'record')}{d.reconciliations.length > 0 && <div>{plural(d.reconciliations.length, 'evidence check')}</div>}</td>
                 <td>
                   <StatusPill s={cs.status} />
                   {f.staleSignoff && <div><span className="pill st-blocked">sign-off stale</span></div>}

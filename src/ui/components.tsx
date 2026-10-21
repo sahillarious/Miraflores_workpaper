@@ -4,6 +4,7 @@ import type { Effect } from '../domain/effects';
 import { fmtValue, refKindLabel, resolveRef } from '../domain/refs';
 import { STATUS_LABEL, type CaseStatus } from '../domain/workflow';
 import { useApp } from './context';
+import { originLabel, priorityDetail, priorityLevel, STATUS_HELP } from './labels';
 
 export const money = (n: number | null | undefined, opts: { sign?: boolean; cents?: boolean } = {}) => {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
@@ -42,21 +43,23 @@ export function Refs({ refs, compact, max = 99 }: { refs: string[]; compact?: bo
 }
 
 export function StatusPill({ s }: { s: CaseStatus }) {
-  return <span className={`pill st-${s}`}>{STATUS_LABEL[s]}</span>;
+  return <span className={`pill st-${s}`} title={STATUS_HELP[s]}>{STATUS_LABEL[s]}</span>;
 }
 
 export function SevPill({ s }: { s: Severity }) {
   return <span className={`pill sev-${s}`}>{s}</span>;
 }
 
+/** One priority label (Blocker, High, Medium, Low); the score and severity are in the tooltip. */
 export function Prio({ d }: { d: CaseDef }) {
-  return <span className={`prio prio-${d.priority}`} title={`Priority score ${d.priorityScore}: ${d.priorityBasis}`}>{d.priority}</span>;
+  const level = priorityLevel(d);
+  return <span className={`prio prio-${level.toLowerCase()}`} title={priorityDetail(d)}>{level}</span>;
 }
 
 export function Origin({ d }: { d: CaseDef }) {
   return d.origin === 'engine'
-    ? <span className="tag tag-engine" title="Raised by the tax engine (packet diagnostic)">engine · {d.ruleId}</span>
-    : <span className="tag tag-wp" title="Raised by a workpaper check that does not trust the engine">workpaper · {d.ruleId}</span>;
+    ? <span className="tag tag-engine" title={`Tax software diagnostic ${d.ruleId}`}>{originLabel(d)}</span>
+    : <span className="tag tag-wp" title={`Workpaper rule ${d.ruleId} (does not trust the tax software)`}>{originLabel(d)}</span>;
 }
 
 export function EffectView({ e, compact }: { e?: Effect; compact?: boolean }) {

@@ -40,7 +40,7 @@ await check('queue search by evidence id', async () => {
 });
 await shot('queue');
 
-await page.goto(BASE + '#/case/ENG-BROKER_SUMMARY_DETAIL_MISMATCH');
+await page.goto(BASE + '#/case/ENG-BROKER_SUMMARY_DETAIL_MISMATCH?view=full');
 await check('copilot panel shows its state without breaking the case', async () => {
   await expectText('Investigation copilot');
   await expectText('AI · suggestions only');
@@ -87,7 +87,7 @@ await check('reviewer approves', async () => {
 await shot('case-resolved');
 
 await page.getByLabel('Act as').selectOption('st-01');
-await page.goto(BASE + '#/case/ENG-DIGITAL_ASSET_BASIS_MISSING');
+await page.goto(BASE + '#/case/ENG-DIGITAL_ASSET_BASIS_MISSING?view=full');
 await check('crypto case keeps uncertainty; client message alone insufficient', async () => {
   await expectText('Client-reported purchase (lead, unverified)');
   await page.getByLabel('Outcome', { exact: true }).selectOption('substantiated');
@@ -153,7 +153,7 @@ await check('restricted staff sees masked SSNs', async () => { await expectText(
 
 await page.setViewportSize({ width: 390, height: 844 });
 await page.getByLabel('Act as').selectOption('st-01');
-await page.goto(BASE + '#/case/WP-RSU-BASIS');
+await page.goto(BASE + '#/case/WP-RSU-BASIS?view=full');
 await check('narrow layout renders case', async () => { await expectText('Supplemental adjusted basis'); });
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 results.push([overflow ? 'FAIL' : 'PASS', 'no horizontal scroll at 390px']);

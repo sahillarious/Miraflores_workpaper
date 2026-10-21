@@ -5,6 +5,7 @@ import { readiness, READINESS_LABEL } from './domain/workflow';
 import { Overview } from './views/Overview';
 import { Queue } from './views/Queue';
 import { CaseView } from './views/CaseView';
+import { CaseFlow } from './views/CaseFlow';
 import { Documents, DocumentView } from './views/Documents';
 import { Versions } from './views/Versions';
 import { LineTrace } from './views/LineTrace';
@@ -40,7 +41,7 @@ export function App() {
     switch (top) {
       case '': view = <Overview ready={ready} />; break;
       case 'queue': view = <Queue />; break;
-      case 'case': view = <CaseView id={route.path[1]} />; break;
+      case 'case': view = route.query.get('view') === 'full' ? <CaseView id={route.path[1]} /> : <CaseFlow key={route.path[1]} id={route.path[1]} />; break;
       case 'docs': view = <Documents />; break;
       case 'doc': view = <DocumentView id={route.path[1]} />; break;
       case 'versions': view = <Versions />; break;

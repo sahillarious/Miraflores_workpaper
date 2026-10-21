@@ -293,3 +293,44 @@ details.sub { margin-left: 14px; }
 .copilot-run { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 .copilot-run h4 { margin: 6px 0 2px; }
 .review-box { border-top: 1px dashed var(--line); padding-top: 6px; }
+
+/* guided case flow */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.flow { max-width: 1240px; }
+.flow-head h1 { font-size: 22px; margin: 6px 0 12px; }
+.progress { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 0; margin: 4px 0 4px; }
+.progress li button { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 6px; padding: 8px 10px; cursor: pointer; color: var(--ink-2); font-weight: 550; display: flex; gap: 8px; align-items: center; }
+.progress li.past button { border-top-color: #b8c2d0; }
+.progress li.on button { border-top-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.progress-n { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--line); font-size: 12px; flex: none; }
+.progress-label { margin: 0 0 12px; }
+.flow-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.flow-side { position: sticky; top: 64px; display: flex; flex-direction: column; gap: 8px; }
+.flow-checklist { list-style: none; margin: 0; padding: 6px 14px 10px; }
+.flow-checklist li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-2); }
+.flow-checklist li:last-child { border-bottom: 0; }
+.ci-icon { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; font-size: 12px; background: var(--panel-2); color: var(--muted); }
+.ci-done .ci-icon { background: var(--pos-soft); color: var(--pos); }
+.ci-waiting .ci-icon { background: var(--warn-soft); color: var(--warn); }
+.ci-stale .ci-icon { background: var(--neg-soft); color: var(--neg); }
+.ci-stale .ci-label { color: var(--neg); }
+.ci-label { font-weight: 600; }
+.lead { font-size: 15.5px; line-height: 1.55; }
+.flow-effect { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: var(--surface); border-radius: 6px; padding: 10px 12px; margin: 12px 0; }
+.flow-effect .effect { font-size: 15px; font-weight: 650; }
+.flow label.small { display: block; margin: 10px 0 4px; font-weight: 600; color: var(--ink-2); }
+.flow select { min-width: 240px; max-width: 100%; }
+.flow-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 16px; }
+.compare { margin-bottom: 14px; }
+.compare-t { font-weight: 600; margin-bottom: 6px; }
+.waiting { background: var(--warn-soft); color: var(--ink); border-left: 4px solid var(--warn); border-radius: 6px; padding: 10px 12px; margin-top: 14px; }
+.approve-box { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.tbl-wrap { overflow-x: auto; max-width: 100%; }
+.fix-tbl td { vertical-align: top; }
+.fix-tbl td:nth-child(4) { min-width: 240px; }
+@media (max-width: 900px) {
+  .flow-body { grid-template-columns: minmax(0, 1fr); }
+  .flow-side { position: static; order: -1; }
+  .progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flow-head h1 { font-size: 19px; }
+}

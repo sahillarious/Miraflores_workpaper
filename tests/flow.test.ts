@@ -1,0 +1,87 @@
+import { describe, expect, it } from 'vitest';
+import { ix } from './load';
+import { buildCases } from '../src/domain/cases';
+import { MemoryRepository, Workpaper } from '../src/domain/store';
+import { buildActors, type Actor } from '../src/domain/workflow';
+import { explainSuggestion, existingAdjustment, flowState } from '../src/ui/flowState';
+
+const defs = buildCases(ix);
+const byId = new Map(defs.map((d) => [d.id, d]));
+const actors = buildActors(ix);
+const A = (id: string) => actors.find((a) => a.id === id) as Actor;
+const priya = A('st-01'), daniel = A('st-02'), helen = A('st-03');
+const fresh = () => new Workpaper(ix, defs, new MemoryRepository());
+function ok(r: { ok: boolean; error?: string }) { if (!r.ok) throw new Error((r as any).error); }
+const item = (wp: Workpaper, id: string, which: string) => flowState(ix, byId.get(id)!, wp.state).items.find((i) => i.id === which)!;
+
+describe('guided flow state (derived from the event log)', () => {
+  it('walks the RSU case: propose all lots, wait for the partner, submit, resolve', () => {
+    const wp = fresh();
+    const def = byId.get('WP-RSU-BASIS')!;
+    expect(flowState(ix, def, wp.state).defaultStep).toBe(1);
+    expect(item(wp, def.id, 'adjustments').state).toBe('na');
+
+    const r = wp.dispatch(priya, def.suggestions.map((s, i) => ({ type: 'case.adjust' as const, payload: { caseId: def.id, adjId: `lot-${i}`, lineKey: s.lineKey, from: s.from, to: s.to, reason: s.reason, federal: s.effect.federal, california: s.effect.california } })));
+    ok(r);
+    let fs = flowState(ix, def, wp.state);
+    expect(fs.defaultStep).toBe(3);
+    expect(fs.pendingApprover).toBe('partner');
+    expect(item(wp, def.id, 'adjustments')).toMatchObject({ state: 'waiting', detail: '3 waiting for partner approval' });
+    expect(def.suggestions.every((s) => existingAdjustment(wp.state, def, s))).toBe(true);
+    // Submission is refused while adjustments are pending (closeBlockers).
+    expect((wp.dispatch(priya, { type: 'case.propose', payload: { caseId: def.id, outcome: 'corrected', rationale: 'Supplemental basis from D11 applied to all three lots.' } }) as any).error).toMatch(/awaiting approval/);
+
+    for (const a of wp.state.cases[def.id].adjustments) ok(wp.dispatch(helen, { type: 'case.adjust.decide', payload: { caseId: def.id, adjId: a.id, decision: 'approved', note: 'Agreed to D11' } }));
+    expect(item(wp, def.id, 'adjustments').state).toBe('done');
+
+    ok(wp.dispatch(priya, { type: 'case.propose', payload: { caseId: def.id, outcome: 'corrected', rationale: 'Supplemental basis from D11 applied to all three lots.' } }));
+    expect(item(wp, def.id, 'decision')).toMatchObject({ state: 'waiting', detail: 'Waiting for partner approval' });
+    // A reviewer cannot resolve a corrected outcome with adjustments over the threshold.
+    expect((wp.dispatch(daniel, { type: 'case.resolve', payload: { caseId: def.id } }) as any).error).toMatch(/partner/);
+    ok(wp.dispatch(helen, { type: 'case.resolve', payload: { caseId: def.id } }));
+    fs = flowState(ix, def, wp.state);
+    expect(fs.defaultStep).toBe(4);
+    expect(item(wp, def.id, 'decision').state).toBe('done');
+  });
+
+  it('shows a stale proposal (evidence changed after submission) and never "waiting" or "done"', () => {
+    const wp = fresh();
+    const id = 'WP-DUP-W2';
+    ok(wp.dispatch(priya, { type: 'case.propose', payload: { caseId: id, outcome: 'explained_difference', rationale: 'Same W-2 photographed; F1040.1a uses D09 only.' } }));
+    expect(item(wp, id, 'decision').state).toBe('waiting');
+    ok(wp.dispatch(priya, { type: 'doc.disposition', payload: { docId: 'D10', disposition: 'duplicate', note: 'Phone photo of D09' } }));
+    expect(flowState(ix, byId.get(id)!, wp.state).staleProposal).toBe(true);
+    expect(item(wp, id, 'decision').state).toBe('stale');
+    expect((wp.dispatch(daniel, { type: 'case.resolve', payload: { caseId: id } }) as any).error).toMatch(/evidence changed/);
+  });
+
+  it('shows a stale sign-off after resolution when a document disposition changes', () => {
+    const wp = fresh();
+    const id = 'WP-DUP-W2';
+    ok(wp.dispatch(priya, { type: 'case.propose', payload: { caseId: id, outcome: 'explained_difference', rationale: 'Same W-2 photographed; F1040.1a uses D09 only.' } }));
+    ok(wp.dispatch(daniel, { type: 'case.resolve', payload: { caseId: id } }));
+    expect(item(wp, id, 'decision').state).toBe('done');
+    ok(wp.dispatch(priya, { type: 'doc.disposition', payload: { docId: 'D10', disposition: 'supplemental', note: 'Photo shows a box the PDF lacks' } }));
+    expect(flowState(ix, byId.get(id)!, wp.state).staleSignoff).toBe(true);
+    expect(item(wp, id, 'decision').state).toBe('stale');
+  });
+
+  it('tracks client questions from the log', () => {
+    const wp = fresh();
+    const id = 'ENG-DIGITAL_ASSET_BASIS_MISSING';
+    expect(item(wp, id, 'client').state).toBe('na');
+    ok(wp.dispatch(priya, { type: 'case.question', payload: { caseId: id, qid: 'q1', to: 'client', toWho: 'cu-01', text: 'Please send the March 2021 bank statement.', expected: 'Statement' } }));
+    expect(item(wp, id, 'client').state).toBe('waiting');
+    ok(wp.dispatch(A('cu-01'), { type: 'case.answer', payload: { caseId: id, qid: 'q1', text: 'Uploading it today.' } }));
+    expect(item(wp, id, 'client').state).toBe('done');
+  });
+
+  it('explains each RSU lot in plain words from the case numbers', () => {
+    const def = byId.get('WP-RSU-BASIS')!;
+    expect(def.suggestions.map((s) => explainSuggestion(def, s))).toEqual([
+      'The broker reported zero cost for lot N1. The company statement (D11) gives a cost of 19,100, so the taxable gain drops from 19,240 to 140.',
+      'The broker reported zero cost for lot N3. The company statement (D11) gives a cost of 19,100, so the gain of 18,480 becomes a loss of 620.',
+      'The broker reported zero cost for lot N4. The company statement (D11) gives a cost of 9,420, so the taxable gain drops from 15,300 to 5,880.',
+    ]);
+  });
+});

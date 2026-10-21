@@ -445,3 +445,7 @@ details.sub { margin-left: 14px; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   details::details-content { transition: none !important; }
 }
+
+/* guided flow: only the focused value is highlighted on the source page */
+.paper-body { position: relative; }
+.paper.focus-only mark.hl:not(.focus) { background: transparent; outline: none; padding: 0; }

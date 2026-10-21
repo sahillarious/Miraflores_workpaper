@@ -113,3 +113,20 @@ export function workList(ix: PacketIndex, defs: CaseDef[], st: WorkState, actor:
   const others = workable.filter((d) => st.cases[d.id].owner !== actor.id);
   return [...awaitingMe, ...mine, ...others];
 }
+
+/**
+ * What to say when a case has no dollar estimate, from its severity and
+ * classification only. It never claims "no tax change": the data does not say that.
+ */
+export function noEstimateSentence(def: CaseDef): string {
+  if (def.severity === 'blocker') return 'No dollar estimate. This blocks e-file until it is resolved.';
+  switch (def.classification) {
+    case 'missing_evidence': return 'No dollar estimate yet: the amount depends on evidence that is not in the file.';
+    case 'judgment': return 'No dollar estimate: the effect depends on a judgment the reviewer has to make.';
+    case 'contradiction': return 'No dollar estimate: it depends on which record turns out to be right.';
+    case 'out_of_scope': return 'No dollar estimate: this sits outside this return and is recorded so it is not missed.';
+    case 'informational': return 'No dollar estimate: this case records something to know, not a correction.';
+    case 'duplicate': return 'No dollar estimate: this checks that a duplicate document is counted only once.';
+    default: return 'No dollar estimate is computed for this case.';
+  }
+}

@@ -3,7 +3,7 @@ import { useApp } from '../ui/context';
 import { go, useRoute } from '../ui/router';
 import { DocPage } from '../ui/DocPage';
 import { ActionButton, EffectView, Origin, Person, Prio, Ref, Section, StatusPill, fmtDate, money } from '../ui/components';
-import { approverFor, existingAdjustment, explainSuggestion, flowState, type FlowState } from '../ui/flowState';
+import { approverFor, existingAdjustment, explainSuggestion, flowState, noEstimateSentence, type FlowState } from '../ui/flowState';
 import { Checklist } from '../ui/Checklist';
 import { HelpPanel } from './HelpPanel';
 import { refKind } from '../domain/refs';
@@ -113,20 +113,22 @@ function SourcePreview({ r }: { r?: string }) {
   const { ix } = useApp();
   if (!r) return <p className="small muted">This case has no single source page to show.</p>;
   const k = refKind(r);
-  if (k === 'ev') { const e = ix.evs.get(r)!; return <DocPage doc={ix.docs.get(e.document_id)!} page={e.page} focusEv={e.id} compact />; }
+  if (k === 'ev') { const e = ix.evs.get(r)!; return <DocPage doc={ix.docs.get(e.document_id)!} page={e.page} focusEv={e.id} compact focusOnly />; }
   const docId = k === 'doc' ? r : r.slice(4, 7);
-  return <DocPage doc={ix.docs.get(docId)!} page={k === 'doc' ? 1 : Number(r.split('#page')[1])} compact />;
+  return <DocPage doc={ix.docs.get(docId)!} page={k === 'doc' ? 1 : Number(r.split('#page')[1])} compact focusOnly />;
 }
 
 function StepWhat({ def, onNext, onHelp }: { def: CaseDef; onNext: () => void; onHelp: (e: { currentTarget: HTMLElement }) => void }) {
   return (
     <Section title="What’s wrong">
       <p className="lead">{plainSummary(def)}</p>
-      <div className="flow-effect">
-        <span className="small muted">Estimated tax effect if corrected</span>
-        <EffectView e={def.effect} />
-        <span className="small muted">Federal / California. An estimate from the return’s tax-effect rates, not a recomputed return.</span>
-      </div>
+      {def.effect ? (
+        <div className="flow-effect">
+          <span className="small muted">Estimated tax effect if corrected</span>
+          <EffectView e={def.effect} />
+          <span className="small muted">Federal / California. An estimate from the return’s tax-effect rates, not a recomputed return.</span>
+        </div>
+      ) : <p className="flow-effect no-estimate">{noEstimateSentence(def)}</p>}
       <h4>Where it comes from</h4>
       <SourcePreview r={keySource(def)} />
       <details className="small show-details">

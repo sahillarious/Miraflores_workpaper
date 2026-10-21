@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../ui/context';
 import { EffectView, Origin, Person, Prio, Section, StatusPill, fmtDate, money } from '../ui/components';
 import { READINESS_LABEL, type ReadinessLevel, type Step } from '../domain/workflow';
-import { workList } from '../ui/flowState';
+import { noEstimateSentence, workList } from '../ui/flowState';
 import { plainSummary } from '../domain/plain';
 
 // Home: the return's headline figures (clearly marked as unverified engine
@@ -39,7 +39,7 @@ export function Overview({ ready }: { ready: { level: ReadinessLevel; steps: Ste
             <div className="case-tags"><Prio d={next} /> <StatusPill s={state.cases[next.id].status} /> <Origin d={next} /></div>
             <h2 className="next-title">{next.title}</h2>
             <p>{plainSummary(next)}</p>
-            <div className="row-wrap"><span className="small muted">Estimated effect</span> <EffectView e={next.effect} /></div>
+            {next.effect ? <div className="row-wrap"><span className="small muted">Estimated effect</span> <EffectView e={next.effect} /></div> : <p className="small muted">{noEstimateSentence(next)}</p>}
             <div className="flow-actions">
               <a className="btn primary big" href={`#/case/${next.id}`}>Open</a>
               {list.length > 1 && <button className="btn ghost" onClick={() => setI((at + 1) % list.length)}>Skip to the next one</button>}

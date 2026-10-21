@@ -123,3 +123,11 @@ describe('plain-language case summaries', () => {
     expect(plainSummary(byId.get('WP-DEPENDENT-TIN')!)).toMatch(/ending 3309.*ending 3390.*e-file would be rejected/);
   });
 });
+
+describe('no-estimate sentence', () => {
+  it('says the SSN case blocks e-file and never claims "no tax change"', async () => {
+    const { noEstimateSentence } = await import('../src/ui/flowState');
+    expect(noEstimateSentence(byId.get('WP-DEPENDENT-TIN')!)).toBe('No dollar estimate. This blocks e-file until it is resolved.');
+    for (const d of defs.filter((x) => !x.effect)) expect(noEstimateSentence(d), d.id).not.toMatch(/no (tax )?change/i);
+  });
+});

@@ -8,7 +8,9 @@ import { useApp } from './context';
 // The contract is (document, page, extracted values, focused value id): a real
 // PDF renderer would take the same inputs and draw ev.position boxes instead.
 
-export interface SourceRendererProps { doc: PacketDocument; page: number; focusEv?: string; onPick?: (ev: ExtractedValue) => void; compact?: boolean }
+export interface SourceRendererProps { doc: PacketDocument; page: number; focusEv?: string; onPick?: (ev: ExtractedValue) => void; compact?: boolean;
+  /** Guided flow: highlight only the focused value and scroll inside the page box, never the window. */
+  focusOnly?: boolean }
 
 interface Span { start: number; end: number; ev: ExtractedValue }
 
@@ -42,14 +44,20 @@ function locate(text: string, evs: ExtractedValue[]): Span[] {
   return spans.sort((a, b) => a.start - b.start);
 }
 
-export function DocPage({ doc, page, focusEv, onPick, compact }: SourceRendererProps) {
+export function DocPage({ doc, page, focusEv, onPick, compact, focusOnly }: SourceRendererProps) {
   const { ix } = useApp();
   const p = doc.pages.find((x) => x.page === page);
   const evs = useMemo(() => (ix.evsByDoc.get(doc.id) ?? []).filter((e) => e.page === page), [ix, doc.id, page]);
   const spans = useMemo(() => (p ? locate(p.printed_content, evs) : []), [p, evs]);
   const unplaced = evs.filter((e) => !spans.some((s) => s.ev.id === e.id));
   const focusRef = useRef<HTMLElement | null>(null);
-  useEffect(() => { focusRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focusEv, page]);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = focusRef.current, body = bodyRef.current;
+    if (!el) return;
+    if (focusOnly && body) { body.scrollTop = Math.max(0, el.offsetTop - body.clientHeight / 2); return; }
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [focusEv, page, focusOnly]);
   if (!p) return <div className="empty">Page {page} not in document.</div>;
 
   const parts: JSX.Element[] = [];
@@ -72,12 +80,12 @@ export function DocPage({ doc, page, focusEv, onPick, compact }: SourceRendererP
 
   const focused = evs.find((e) => e.id === focusEv);
   return (
-    <div className={`paper${compact ? ' compact' : ''}`}>
+    <div className={`paper${compact ? ' compact' : ''}${focusOnly ? ' focus-only' : ''}`}>
       <div className="paper-h">
         <span><strong>{doc.id}</strong> · {doc.file_name}</span>
         <span className="muted">page {page} of {doc.page_count} · simulated from printed_content</span>
       </div>
-      <div className="paper-body">{parts}</div>
+      <div className="paper-body" ref={bodyRef}>{parts}</div>
       {focused && (
         <div className="paper-loc small">
           Field <strong>{focused.field}</strong> ({focused.label}) · read “{focused.text_as_read || '(nothing printed)'}” → <strong>{fmtValue(focused.value)}</strong> · confidence {focused.confidence} ·

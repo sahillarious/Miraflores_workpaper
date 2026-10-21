@@ -429,6 +429,8 @@ await journey('(p2-c) a cached verified report: three plain lines, ids only in t
   if ((await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:')) ?? '') ?? '[]'))).some((e) => e.type === 'case.link')) throw new Error('linked before the click');
   await see(h, 'counts as documentary evidence');
   await shot(h, 'p2-link-bridge');
+  if (!(await h.getByRole('button', { name: 'Select records to link' }).isDisabled())) throw new Error('link button enabled with nothing selected');
+  await h.getByRole('button', { name: 'Select the documentary ones (2)' }).click();
   await h.getByRole('button', { name: 'Link 2 records' }).click();
   await see(h, 'Linked 2 record(s)');
   const links = (await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'))).filter((e) => e.type === 'case.link');

@@ -387,21 +387,26 @@ function ActionBar({ onBack, extra, children }: { onBack?: () => void; extra?: R
 function AiLinkBridge({ def }: { def: CaseDef }) {
   const { ix, state, run, mask } = useApp();
   const ai = useCopilot(def);
-  const [skip, setSkip] = useState<Set<string>>(new Set());
+  // Nothing is pre-selected: a long report can cite many records, and each link should be a choice.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [all, setAll] = useState(false);
   const shown = ai.shown;
   if (!ai.isStaff || !shown || shown.freshness === 'changed') return null;
   const cands = linkCandidates(ix, shown.run, new Set(state.cases[def.id].links.map((l) => l.ref)));
   if (!cands.length) return null;
-  const chosen = cands.filter((c) => !skip.has(c.ref));
+  const chosen = cands.filter((c) => picked.has(c.ref));
+  const documentary = cands.filter((c) => c.documentary);
+  const visible = all ? cands : cands.slice(0, 6);
   return (
     <div className="ai-link">
       <h4>Link these records as evidence? <span className="tag tag-ai">AI suggestion</span></h4>
-      <p className="small muted">The AI analysis cites these records in its facts. Being cited does not prove a point: the usual evidence rules still apply when the decision is checked. Nothing is linked until you click.</p>
+      <p className="small muted">The AI analysis cites these records in its facts. Being cited does not prove a point: the usual evidence rules still apply when the decision is checked. Choose the records to link; nothing is linked until you click.</p>
+      {documentary.length > 0 && <button className="link small" onClick={() => setPicked(new Set(documentary.map((c) => c.ref)))}>Select the documentary ones ({documentary.length})</button>}
       <ul className="plain ai-link-list">
-        {cands.map((c) => (
+        {visible.map((c) => (
           <li key={c.ref}>
             <label>
-              <input type="checkbox" checked={!skip.has(c.ref)} onChange={() => setSkip((s) => { const n = new Set(s); if (n.has(c.ref)) n.delete(c.ref); else n.add(c.ref); return n; })} />{' '}
+              <input type="checkbox" checked={picked.has(c.ref)} onChange={() => setPicked((s) => { const n = new Set(s); if (n.has(c.ref)) n.delete(c.ref); else n.add(c.ref); return n; })} />{' '}
               <span className="mono">{c.ref}</span> {mask(c.label.replace(`${c.ref} · `, ''))}{' '}
               <span className={`tag${c.documentary ? ' tag-doc' : ''}`}>{c.documentary ? 'counts as documentary evidence' : 'does not count as documentary evidence'}</span>
             </label>
@@ -409,7 +414,8 @@ function AiLinkBridge({ def }: { def: CaseDef }) {
           </li>
         ))}
       </ul>
-      <ActionButton className="btn" disabled={!chosen.length} onRun={() => run(chosen.map((c) => linkCommand(def.id, shown.run.runId, c)), `Linked ${chosen.length} record(s)`)}>Link {chosen.length} record{chosen.length === 1 ? '' : 's'}</ActionButton>
+      {!all && cands.length > visible.length && <button className="link small" onClick={() => setAll(true)}>Show all {cands.length} records</button>}
+      <ActionButton className="btn" disabled={!chosen.length} onRun={() => run(chosen.map((c) => linkCommand(def.id, shown.run.runId, c)), `Linked ${chosen.length} record(s)`)}>{chosen.length ? `Link ${chosen.length} record${chosen.length === 1 ? '' : 's'}` : 'Select records to link'}</ActionButton>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { CaseDef, SuggestedAdjustment } from '../domain/cases';
 import type { PacketIndex } from '../domain/packetIndex';
 import { refKind } from '../domain/refs';
 import { caseFacts, PARTNER_THRESHOLD, type Adjustment, type WorkState } from '../domain/workflow';
+import { comparePriority } from './labels';
 
 // Read-only view model for the guided case flow. Everything here is derived
 // from projected domain state (project -> caseFacts); nothing is stored, so
@@ -99,7 +100,7 @@ export function existingAdjustment(st: WorkState, def: CaseDef, s: SuggestedAdju
  * everyone then sees unresolved cases they own, then the rest, by priority.
  */
 export function workList(ix: PacketIndex, defs: CaseDef[], st: WorkState, actor: { id: string; role: string }): CaseDef[] {
-  const byPrio = (a: CaseDef, b: CaseDef) => b.priorityScore - a.priorityScore;
+  const byPrio = comparePriority;
   const unresolved = defs.filter((d) => st.cases[d.id].status !== 'resolved').sort(byPrio);
   const approver = actor.role === 'partner' || actor.role === 'reviewer';
   const awaitingMe = approver ? unresolved.filter((d) => {

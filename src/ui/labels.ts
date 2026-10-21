@@ -39,3 +39,8 @@ export const RECON_PLAIN: Record<ReconStatus, string> = {
 export const originLabel = (d: CaseDef) => (d.origin === 'engine' ? 'Raised by the tax software' : 'Found by our checks');
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+const SEVERITY_RANK: Record<CaseDef['severity'], number> = { blocker: 3, high: 2, medium: 1, low: 0 };
+
+/** Queue order: priority score (unchanged), then severity, so a Blocker sorts above a High on a tie. */
+export const comparePriority = (a: CaseDef, b: CaseDef) => b.priorityScore - a.priorityScore || SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];

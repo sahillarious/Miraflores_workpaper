@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../ui/context';
 import { useRoute } from '../ui/router';
 import { EffectView, Origin, Person, Prio, StatusPill } from '../ui/components';
-import { plural, priorityLevel } from '../ui/labels';
+import { comparePriority, plural, priorityLevel } from '../ui/labels';
 import { allowedTransitions, caseFacts, STATUS_LABEL, type CaseStatus } from '../domain/workflow';
 import { absEffect } from '../domain/effects';
 import type { CaseDef } from '../domain/cases';
@@ -47,7 +47,7 @@ export function Queue() {
       if (sort === 'effect') return absEffect(b.effect) - absEffect(a.effect);
       if (sort === 'recent') return (state.cases[b.id].lastChange ?? '').localeCompare(state.cases[a.id].lastChange ?? '');
       if (sort === 'status') return order.indexOf(state.cases[a.id].status) - order.indexOf(state.cases[b.id].status);
-      return b.priorityScore - a.priorityScore;
+      return comparePriority(a, b);
     });
     return r;
   }, [defs, state, status, area, origin, owner, juris, prio, q, sort]);

@@ -90,8 +90,11 @@ describe('work list for the home page', () => {
   it('puts approvals first for a partner and never the partner\'s own work', async () => {
     const { workList } = await import('../src/ui/flowState');
     const wp = fresh();
-    // Preparer: same order as the queue (priority score), starting with the RSU case.
-    const queueOrder = [...defs].sort((x, y) => y.priorityScore - x.priorityScore).map((d) => d.id);
+    // Preparer: same order as the queue (score, then severity), so the Blocker SSN case ties with RSU and sorts first.
+    const { comparePriority } = await import('../src/ui/labels');
+    const queueOrder = [...defs].sort(comparePriority).map((d) => d.id);
+    expect(queueOrder.slice(0, 2)).toEqual(['WP-DEPENDENT-TIN', 'WP-RSU-BASIS']);
+    expect(byId.get('WP-DEPENDENT-TIN')!.priorityScore).toBe(byId.get('WP-RSU-BASIS')!.priorityScore); // the score itself is unchanged
     expect(workList(ix, defs, wp.state, priya)[0].id).toBe(queueOrder[0]);
     // Propose the 1099-K correction (third by priority; its effect needs a partner).
     const def = byId.get('WP-1099K-DOUBLE')!;

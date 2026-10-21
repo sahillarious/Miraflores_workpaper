@@ -5,6 +5,7 @@ import { DocPage } from '../ui/DocPage';
 import { EffectView, Origin, Person, Prio, Ref, Section, StatusPill, fmtDate, money } from '../ui/components';
 import { approverFor, existingAdjustment, explainSuggestion, flowState, type CheckItem, type FlowState } from '../ui/flowState';
 import { refKind } from '../domain/refs';
+import { plainSummary } from '../domain/plain';
 import { closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
 import type { CaseDef, Outcome, Reconciliation } from '../domain/cases';
 
@@ -108,8 +109,7 @@ function SourcePreview({ r }: { r?: string }) {
 function StepWhat({ def, onNext }: { def: CaseDef; onNext: () => void }) {
   return (
     <Section title="What’s wrong">
-      <p className="lead">{def.why}</p>
-      {def.matters && <p>{def.matters}</p>}
+      <p className="lead">{plainSummary(def)}</p>
       <div className="flow-effect">
         <span className="small muted">Estimated tax effect if corrected</span>
         <EffectView e={def.effect} />
@@ -117,6 +117,12 @@ function StepWhat({ def, onNext }: { def: CaseDef; onNext: () => void }) {
       </div>
       <h4>Where it comes from</h4>
       <SourcePreview r={keySource(def)} />
+      <details className="small show-details">
+        <summary>Show details</summary>
+        <p><strong>Why it was flagged:</strong> {def.why}</p>
+        {def.matters && <p><strong>Why it matters:</strong> {def.matters}</p>}
+        <p className="muted">Case <span className="mono">{def.id}</span> · rule <span className="mono">{def.ruleId}</span> · {def.refs.length} records</p>
+      </details>
       <div className="flow-actions">
         <button className="btn primary" onClick={onNext}>Yes, that’s right</button>
         <a className="btn ghost" href={`#/case/${def.id}?view=full`}>I need help</a>

@@ -106,3 +106,17 @@ describe('work list for the home page', () => {
     expect(workList(ix, defs, wp.state, helen)).toHaveLength(defs.length);
   });
 });
+
+describe('plain-language case summaries', () => {
+  it('gives every case one plain sentence with no ids, rule codes or line keys', async () => {
+    const { plainSummary, TECHNICAL, PLAIN_WRITTEN } = await import('../src/domain/plain');
+    for (const d of defs) {
+      const s = plainSummary(d);
+      expect(s, d.id).not.toMatch(TECHNICAL);
+      expect(s, d.id).not.toMatch(/NaN|undefined/);
+    }
+    expect(PLAIN_WRITTEN).toHaveLength(defs.length);
+    expect(plainSummary(byId.get('WP-RSU-BASIS')!)).toContain('47,620');
+    expect(plainSummary(byId.get('WP-DEPENDENT-TIN')!)).toMatch(/ending 3309.*ending 3390.*e-file would be rejected/);
+  });
+});

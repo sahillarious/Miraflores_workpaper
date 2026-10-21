@@ -3,6 +3,7 @@ import { useApp } from '../ui/context';
 import { EffectView, Origin, Person, Prio, Section, StatusPill, fmtDate, money } from '../ui/components';
 import { READINESS_LABEL, type ReadinessLevel, type Step } from '../domain/workflow';
 import { workList } from '../ui/flowState';
+import { plainSummary } from '../domain/plain';
 
 // Home: the return's headline figures (clearly marked as unverified engine
 // snapshots), readiness, and the one case to work on next.
@@ -37,7 +38,7 @@ export function Overview({ ready }: { ready: { level: ReadinessLevel; steps: Ste
             <div className="small muted">Your next case: {at + 1} of {list.length}{awaitingApproval ? ' · waiting for your approval' : ''}</div>
             <div className="case-tags"><Prio d={next} /> <StatusPill s={state.cases[next.id].status} /> <Origin d={next} /></div>
             <h2 className="next-title">{next.title}</h2>
-            <p>{next.nextAction}</p>
+            <p>{plainSummary(next)}</p>
             <div className="row-wrap"><span className="small muted">Estimated effect</span> <EffectView e={next.effect} /></div>
             <div className="flow-actions">
               <a className="btn primary big" href={`#/case/${next.id}`}>Open</a>

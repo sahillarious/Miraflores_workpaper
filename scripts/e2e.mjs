@@ -44,7 +44,7 @@ await page.goto(BASE + '#/case/ENG-BROKER_SUMMARY_DETAIL_MISMATCH?view=full');
 await check('copilot panel shows its state without breaking the case', async () => {
   await expectText('Investigation copilot');
   await expectText('AI · suggestions only');
-  if (process.env.EXPECT_COPILOT !== 'configured') await expectText('LLM not configured');
+  if (process.env.EXPECT_COPILOT !== 'configured') await expectText('AI copilot is off');
 });
 await check('Meridian case shows both amounts and difference', async () => { await expectText('71,965.00'); await expectText('71,715.00'); await expectText('page 32'); });
 await shot('case-meridian');

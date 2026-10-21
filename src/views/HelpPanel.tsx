@@ -6,9 +6,10 @@ import { flowState } from '../ui/flowState';
 import { termsFor } from '../ui/glossary';
 import { STATUS_PHRASE } from '../ui/labels';
 import { loadRun, useCopilot } from '../ui/useCopilot';
+import { AccessCodeForm } from '../ui/AccessCode';
+import { AiLines } from './AiSummary';
 import { plainSummary } from '../domain/plain';
 import { authorize, type Command } from '../domain/workflow';
-import { REPORT_STATUS_LABEL } from '../copilot/types';
 import type { CaseDef } from '../domain/cases';
 
 // "I need help" panel: a drawer over the guided flow (a bottom sheet on
@@ -179,31 +180,23 @@ function AskColleagueCard({ def, onDone }: { def: CaseDef; onDone: Done }) {
 }
 
 function AiCard({ def, step }: { def: CaseDef; step: number }) {
-  const { actor, mask } = useApp();
-  const { status, statusErr, busy, elapsed, current, err, investigate } = useCopilot(def);
-  const isStaff = ['preparer', 'reviewer', 'partner'].includes(actor.role);
-  const reason = statusErr ?? (!status ? 'checking whether the AI service is available…' : !status.configured ? (status.reason ?? 'the AI service is not configured.') : !isStaff ? 'staff roles only.' : null);
-  const rep = current?.report;
+  const { status, statusErr, enabled, isStaff, code, busy, elapsed, shown, err, investigate } = useCopilot(def);
+  const reason = statusErr ?? (!status ? 'checking whether the AI service is available…' : !enabled ? (status.reason ?? 'the AI service is not configured.') : !isStaff ? 'staff roles only.' : null);
   return (
     <div className={`help-card${reason ? ' unavailable' : ''}`}>
       <span className="help-card-t">Get an AI second look <span className="tag tag-ai">AI · suggestion only</span></span>
       <span className="small muted">The AI reads this case’s records and drafts an analysis; every id and amount it cites is checked. It cannot change the case. About 20–90 seconds.</span>
       {reason && <span className="small muted">Not available right now: {reason}</span>}
+      {!reason && !code && <AccessCodeForm compact />}
       {busy && (
         <div className="skeleton-block" aria-busy="true" aria-label="AI analysis loading">
           <div className="skeleton" /><div className="skeleton" /><div className="skeleton short" />
           <span className="small muted">Reading the records… {elapsed}s</span>
         </div>
       )}
-      {!busy && rep && (
-        <div className="banner ai small">
-          <strong>AI suggestion, not a verified finding{current?.validation?.passed ? '' : ' (failed verification; do not rely on it)'}.</strong>{' '}
-          {REPORT_STATUS_LABEL[rep.status]}. {mask(rep.summary)}{' '}
-          <a href={`#/case/${def.id}?view=full&from=${step}`}>Review it in full details</a>
-        </div>
-      )}
+      {!busy && shown && <AiLines def={def} shown={shown} fullHref={`#/case/${def.id}?view=full&from=${step}`} />}
       {err && <span className="small neg" role="alert">{err}</span>}
-      <ActionButton className="btn" disabled={!!reason || busy} onRun={investigate}>{busy ? 'Working…' : rep ? 'Run it again' : 'Get an AI second look'}</ActionButton>
+      <ActionButton className="btn" disabled={!!reason || !code || busy} onRun={investigate}>{busy ? 'Working…' : shown ? 'Run it again' : 'Get an AI second look'}</ActionButton>
     </div>
   );
 }

@@ -81,4 +81,15 @@ export interface InvestigationRun {
   error?: { kind: string; message: string };
 }
 
-export interface CopilotStatus { configured: boolean; provider: string; model: string | null; maxModelTurns: number; maxToolCalls: number; reason?: string }
+export interface CopilotStatus {
+  configured: boolean; provider: string; model: string | null; maxModelTurns: number; maxToolCalls: number; reason?: string;
+  /** Every investigate request must carry the shared demo access code (x-access-code header). */
+  accessCodeRequired?: boolean;
+  dailyCap?: number;
+  usedToday?: number;
+  /** Cache key per case id (see server/cacheKey.ts); present when the copilot is configured. */
+  cacheKeys?: Record<string, string>;
+}
+
+/** What POST /api/copilot/investigate returns: the run plus the key it may be cached under. */
+export type InvestigateResponse = InvestigationRun & { cacheKey: string };

@@ -6,6 +6,10 @@ import { ActionButton, EffectView, Origin, Person, Prio, Ref, Section, StatusPil
 import { approverFor, existingAdjustment, explainSuggestion, flowState, noEstimateSentence, type FlowState } from '../ui/flowState';
 import { Checklist } from '../ui/Checklist';
 import { HelpPanel } from './HelpPanel';
+import { AiSummary } from './AiSummary';
+import { useCopilot } from '../ui/useCopilot';
+import { linkCandidates, linkCommand } from '../copilot/linkBridge';
+import { draftRationale } from '../copilot/summary';
 import { refKind } from '../domain/refs';
 import { plainSummary } from '../domain/plain';
 import { closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
@@ -34,6 +38,9 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
   const trigger = useRef<HTMLElement | null>(null);
   const openHelp = (e: { currentTarget: HTMLElement }) => { trigger.current = e.currentTarget; setHelpOpen(true); };
   const closeHelp = () => { setHelpOpen(false); trigger.current?.focus(); };
+  // Auto-investigate on opening the case: only for staff, with the copilot on, the access code present and nothing cached for this key.
+  const ai = useCopilot(def);
+  useEffect(() => { ai.autoInvestigate(); }, [def.id, ai.enabled, ai.code, ai.cacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const fs = flowState(ix, def, state);
   const step = (Number(route.query.get('step')) || fs.defaultStep) as 1 | 2 | 3 | 4;
   const reviewing = ['reviewer', 'partner'].includes(actor.role) && cs.status === 'ready_for_approval';
@@ -131,6 +138,7 @@ function StepWhat({ def, onNext, onHelp }: { def: CaseDef; onNext: () => void; o
   return (
     <Section title="What’s wrong">
       <p className="lead">{plainSummary(def)}</p>
+      <AiSummary def={def} />
       {def.effect ? (
         <div className="flow-effect">
           <span className="small muted">Estimated tax effect if corrected</span>
@@ -180,6 +188,7 @@ function StepProof({ def, onNext, onBack }: { def: CaseDef; onNext: () => void; 
       {def.reconciliations.length ? def.reconciliations.map((r) => <Compare key={r.id} r={r} />) : <p className="muted">This case has no numeric comparison. The supporting facts are below.</p>}
       {def.reconciliations.length === 0 && def.facts.length > 0 && <ul className="facts">{def.facts.map((f, i) => <li key={i}>{f.text}</li>)}</ul>}
       {docs.length > 0 && <><h4>Documents this case relies on</h4><div className="refs">{docs.map((r) => <Ref key={r} r={r} />)}</div></>}
+      <AiLinkBridge def={def} />
       <h4>Evidence linked to the decision</h4>
       {cs.links.length ? (
         <ul className="plain small">{cs.links.map((l) => <li key={l.ref}><Ref r={l.ref} compact /> {mask(l.why)} <span className="muted">— <Person id={l.by} /></span></li>)}</ul>
@@ -277,6 +286,9 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
   const initial: Outcome = def.suggestions.length && def.allowedOutcomes.includes('corrected') ? 'corrected' : def.allowedOutcomes[0];
   const [outcome, setOutcome] = useState<Outcome>(initial);
   const [rationale, setRationale] = useState('');
+  const [fromDraft, setFromDraft] = useState<string | null>(null);
+  const ai = useCopilot(def);
+  const draft = ai.shown && ai.shown.freshness !== 'changed' ? mask(draftRationale(ai.shown.run.report!)) : null;
   const blockers = closeBlockers(ix, def, state, outcome, rationale);
   const unasked = def.openQuestions.filter((q) => !cs.questions.some((x) => x.text === q));
   const clientQs = cs.questions.filter((q) => q.to === 'client');
@@ -317,6 +329,12 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
         {def.allowedOutcomes.map((o) => <option key={o} value={o}>{OUTCOME_LABEL[o]}</option>)}
       </select>
       <label className="small" htmlFor="flow-rationale">Why (at least 20 characters: what you checked and what it shows)</label>
+      {draft && staff && (
+        <div className="row-wrap">
+          <button className="btn small ghost" onClick={() => { setRationale(draft); setFromDraft(draft); }}>Draft from the AI analysis</button>
+          {fromDraft && <span className="tag tag-ai">{rationale === fromDraft ? 'AI draft: check and edit it before you submit' : 'Edited from an AI draft'}</span>}
+        </div>
+      )}
       <textarea id="flow-rationale" rows={4} value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="e.g. D11 gives the basis for all three lots; adjustments approved by the partner." />
       <div className="small muted">{rationale.trim().length} / 20 characters</div>
 
@@ -361,6 +379,37 @@ function ActionBar({ onBack, extra, children }: { onBack?: () => void; extra?: R
     <div className="action-bar">
       {onBack ? <button className="btn ghost" onClick={onBack}>Back</button> : <span />}
       <div className="action-bar-r">{extra}{children}</div>
+    </div>
+  );
+}
+
+/** "Link these records as evidence": records the verified AI report cites, linked only when a person clicks. */
+function AiLinkBridge({ def }: { def: CaseDef }) {
+  const { ix, state, run, mask } = useApp();
+  const ai = useCopilot(def);
+  const [skip, setSkip] = useState<Set<string>>(new Set());
+  const shown = ai.shown;
+  if (!ai.isStaff || !shown || shown.freshness === 'changed') return null;
+  const cands = linkCandidates(ix, shown.run, new Set(state.cases[def.id].links.map((l) => l.ref)));
+  if (!cands.length) return null;
+  const chosen = cands.filter((c) => !skip.has(c.ref));
+  return (
+    <div className="ai-link">
+      <h4>Link these records as evidence? <span className="tag tag-ai">AI suggestion</span></h4>
+      <p className="small muted">The AI analysis cites these records in its facts. Being cited does not prove a point: the usual evidence rules still apply when the decision is checked. Nothing is linked until you click.</p>
+      <ul className="plain ai-link-list">
+        {cands.map((c) => (
+          <li key={c.ref}>
+            <label>
+              <input type="checkbox" checked={!skip.has(c.ref)} onChange={() => setSkip((s) => { const n = new Set(s); if (n.has(c.ref)) n.delete(c.ref); else n.add(c.ref); return n; })} />{' '}
+              <span className="mono">{c.ref}</span> {mask(c.label.replace(`${c.ref} · `, ''))}{' '}
+              <span className={`tag${c.documentary ? ' tag-doc' : ''}`}>{c.documentary ? 'counts as documentary evidence' : 'does not count as documentary evidence'}</span>
+            </label>
+            <div className="small muted">Cited for: {mask(c.reason)}</div>
+          </li>
+        ))}
+      </ul>
+      <ActionButton className="btn" disabled={!chosen.length} onRun={() => run(chosen.map((c) => linkCommand(def.id, shown.run.runId, c)), `Linked ${chosen.length} record(s)`)}>Link {chosen.length} record{chosen.length === 1 ? '' : 's'}</ActionButton>
     </div>
   );
 }

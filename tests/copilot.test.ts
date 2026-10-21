@@ -219,9 +219,9 @@ describe('human review boundaries', () => {
 });
 
 describe('API', () => {
-  const call = async (api: ReturnType<typeof createCopilotApi>, method: string, url: string, body?: unknown) => {
+  const call = async (api: ReturnType<typeof createCopilotApi>, method: string, url: string, body?: unknown, headers: Record<string, string> = {}) => {
     const chunks = body ? [Buffer.from(JSON.stringify(body))] : [];
-    const req: any = { method, url, [Symbol.asyncIterator]: async function* () { yield* chunks; } };
+    const req: any = { method, url, headers, [Symbol.asyncIterator]: async function* () { yield* chunks; } };
     let status = 0; let out = '';
     const res: any = { setHeader() {}, set statusCode(c: number) { status = c; }, end(s: string) { out = s; } };
     await api(req, res);
@@ -236,14 +236,14 @@ describe('API', () => {
     expect((await call(api, 'POST', '/api/copilot/investigate', { caseId: 'nope' })).status).toBe(400);
   });
   it('never returns the API key', async () => {
-    const api = createCopilotApi({ packetPath, env: { ANTHROPIC_API_KEY: 'sk-ant-test-SECRET' }, log: () => {} });
+    const api = createCopilotApi({ packetPath, env: { ANTHROPIC_API_KEY: 'sk-ant-test-SECRET', COPILOT_ACCESS_CODE: 'code-SECRET' }, log: () => {} });
     const s = await call(api, 'GET', '/api/copilot/status');
     expect(JSON.stringify(s.body)).not.toMatch(/SECRET/);
     expect(s.body.configured).toBe(true);
   });
   it('runs an investigation through an injected provider', async () => {
-    const api = createCopilotApi({ packetPath, provider: scripted(meridianTurns(goodReport())), log: () => {} });
-    const r = await call(api, 'POST', '/api/copilot/investigate', { caseId: MERIDIAN });
+    const api = createCopilotApi({ packetPath, env: { COPILOT_ACCESS_CODE: 'test-code' }, provider: scripted(meridianTurns(goodReport())), log: () => {} });
+    const r = await call(api, 'POST', '/api/copilot/investigate', { caseId: MERIDIAN }, { 'x-access-code': 'test-code' });
     expect(r.status).toBe(200);
     expect(r.body.outcome).toBe('validated');
   });

@@ -7,6 +7,9 @@ import type { InvestigationReport, Issue, Validation } from './types';
 // Deterministic checks on a model report. Nothing here edits the report: a
 // problem becomes an issue and the run is marked unverified.
 
+/** Bump when the verification rules change; it is part of the copilot cache key. */
+export const VERIFIER_VERSION = '2026-10-19.2';
+
 const ID_TOKEN = /\b(?:ev-\d{3,5}|D\d\d|doc:D\d\d#page\d+|qa-\d+|msg-\d+|call-\d+|calc-\d+|(?:F|Sch)[A-Za-z0-9-]*\.[A-Za-z0-9.]+|[A-Z]{1,3}\d{1,3})\b/g;
 
 /** Numbers stated in prose: amounts and counts, ignoring ids, years, dates and small ordinals. */

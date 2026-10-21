@@ -20,7 +20,8 @@ const errors = [];
 async function newPage(width = Number(process.env.WIDTH ?? 1440), opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 950 }, ...opts });
   const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  // The browser logs the 401 that journey (p2-b) provokes on purpose with a wrong access code; that one line is expected.
+  page.on('console', (m) => { if (m.type() === 'error' && !/^Failed to load resource: the server responded with a status of 401 /.test(m.text())) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(BASE);
   return page;
@@ -186,8 +187,12 @@ await journey('(h-a) the help panel opens from each of the four steps, Esc close
       // Tab stays inside the panel.
       for (let i = 0; i < 25; i++) await h.keyboard.press('Tab');
       if (!(await h.evaluate(() => !!document.activeElement?.closest('.help-drawer')))) throw new Error('focus escaped the panel');
+      // Without an access code in this browser session the AI card never runs, configured or not.
       const ai = h.getByRole('button', { name: 'Get an AI second look' });
-      if ((await ai.isDisabled()) === configured) throw new Error(`AI card disabled=${await ai.isDisabled()} but copilot configured=${configured}`);
+      if (!(await ai.isDisabled())) throw new Error('AI card is enabled without an access code');
+      const inPanel = h.locator('.help-drawer');
+      if (configured) { if (!(await inPanel.getByLabel('Enter access code').count())) throw new Error('no access code field in the AI card'); }
+      else if (!(await inPanel.getByText('Not available right now: COPILOT_ACCESS_CODE', { exact: false }).count() + await inPanel.getByText('Not available right now: ANTHROPIC_API_KEY', { exact: false }).count())) throw new Error('AI card does not say why it is off');
       await h.getByText('What do these words mean?').click();
       await see(h, 'A Social Security number (SSN)');
       await shot(h, 'help-ssn-glossary');
@@ -345,6 +350,101 @@ await journey('(m) identifiers are masked for every role; unmask is refused with
   await noLeak(r, 'after hide');
   await open(r, '#/activity');
   await see(r, 'doc:D06#page1');
+});
+
+// ---- Phase 2: AI summary, cache, access code, link bridge, rationale draft (no live model calls) ----
+const status = await (await fetch(new URL('./api/copilot/status', BASE))).json().catch(() => ({ configured: false }));
+const investigateCalls = (pg) => { const calls = []; pg.on('request', (r) => { if (r.url().includes('/api/copilot/investigate')) calls.push({ code: r.headers()['x-access-code'] }); }); return calls; };
+
+await journey('(p2-a) with the copilot off, step 1 says so and everything else works', async () => {
+  if (status.configured) return; // covered by the unconfigured run
+  const h = await newPage();
+  const calls = investigateCalls(h);
+  await open(h, '#/case/WP-RSU-BASIS');
+  await see(h, 'AI summary is off');
+  await see(h, 'Step 1 of 4');
+  if (calls.length) throw new Error('an investigation was requested while the copilot is off');
+});
+
+await journey('(p2-b) a wrong access code gets a friendly 401, no model call and no budget used', async () => {
+  if (!status.configured) return;
+  const h = await newPage();
+  const calls = investigateCalls(h);
+  await open(h, '#/case/WP-HVAC');
+  await h.getByLabel('Enter access code').first().fill('definitely-wrong');
+  await h.getByRole('button', { name: 'Use code' }).first().click();
+  await see(h, 'That access code was not accepted');
+  if (calls.length !== 1 || calls[0].code !== 'definitely-wrong') throw new Error(`expected one request with the typed code, got ${JSON.stringify(calls)}`);
+  if (await h.evaluate(() => sessionStorage.getItem('mf-copilot-code'))) throw new Error('the rejected code was kept');
+  if (await h.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('mf-copilot-cache:')))) throw new Error('a failed request was cached');
+  const after = await (await fetch(new URL('./api/copilot/status', BASE))).json();
+  if (after.usedToday !== status.usedToday) throw new Error(`401 consumed budget: ${status.usedToday} -> ${after.usedToday}`);
+  await h.getByLabel('Enter access code').first().waitFor();
+});
+
+await journey('(p2-c) a cached verified report: three plain lines, ids only in the full analysis, link bridge and rationale draft', async () => {
+  if (!status.configured) return;
+  const CASE = 'ENG-BROKER_SUMMARY_DETAIL_MISMATCH';
+  const key = status.cacheKeys[CASE];
+  const madeAt = '2026-10-21T09:15:00.000Z';
+  const run = {
+    runId: 'run-e2e-fixture', caseId: CASE, outcome: 'validated', model: 'fixture', startedAt: madeAt, latencyMs: 1, usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    modelTurns: 4, toolCalls: 3, schemaFailures: 0, trace: [], retrievedIds: ['ev-0703', 'doc:D31#page32'],
+    report: {
+      case_id: CASE, status: 'likely_issue',
+      summary: 'The corrected Meridian 1099 summary (ev-0703) shows proceeds of 71,965.00 while the extracted lots total 71,715. The 250 difference matches a lot printed on an unextracted page (doc:D31#page32).',
+      facts: [
+        { statement: 'Summary proceeds on the corrected 1099 are 71,965.00.', evidence_ids: ['ev-0703'], quantities: [{ label: 'summary proceeds', value: 71965, evidence_id: 'ev-0703' }] },
+        { statement: 'Page 32 prints lot M18 with proceeds 250.00; nothing was extracted from that page.', evidence_ids: ['doc:D31#page32'], quantities: [] },
+        { statement: 'Summary minus extracted lots is 250.', evidence_ids: ['calc-1'], quantities: [{ label: 'difference', value: 250, evidence_id: 'calc-1' }] },
+      ],
+      hypotheses: [], missing_information: [],
+      recommended_next_steps: [{ action: 'Add lot M18 from page 32 of D31 to Form 8949 or document why it is excluded.', rationale: 'It accounts for the difference.' }],
+      client_question_draft: null, resolution_criteria: 'Close once the lot is on Form 8949.', requires_human_review: true,
+    },
+    validation: { passed: true, issues: [], citedIds: ['ev-0703', 'doc:D31#page32', 'calc-1'], existingCited: 3, retrievedCited: 3, quantitiesChecked: 2, quantitiesVerified: 2, textNumbersChecked: 4, textNumbersFound: 4 },
+  };
+  const h = await newPage();
+  const calls = investigateCalls(h);
+  await h.evaluate(({ key, run, madeAt, CASE }) => {
+    localStorage.setItem(`mf-copilot-cache:${key}`, JSON.stringify({ cacheKey: key, madeAt, run }));
+    localStorage.setItem(`mf-copilot-latest:${CASE}`, JSON.stringify({ cacheKey: key, madeAt }));
+    sessionStorage.setItem('mf-copilot-code', 'not-the-real-code');
+  }, { key, run, madeAt, CASE });
+  await open(h, `#/case/${CASE}`);
+  const box = h.locator('.flow-main .ai-summary').first();
+  await box.waitFor({ timeout: 5000 });
+  const text = await box.innerText();
+  if (!/AI suggestion/.test(text) || !/cached · made/.test(text)) throw new Error(`summary header: ${text.slice(0, 120)}`);
+  const lines = await box.locator('.ai-lines li').allInnerTexts();
+  if (lines.length !== 3) throw new Error(`expected 3 lines, got ${lines.length}`);
+  if (lines.some((l) => /\bev-\d|doc:D\d|\bD\d\d\b|\bR-|\bWP-|calc-/.test(l))) throw new Error(`ids in the visible summary: ${lines.join(' | ')}`);
+  await shot(h, 'p2-summary');
+  await box.getByText('Show full analysis').click();
+  await box.locator('.ai-full').getByText('ev-0703').first().waitFor({ timeout: 3000 });
+  if (calls.length) throw new Error('a cached report triggered a new investigation');
+  // Step 2: link bridge, nothing linked until the click.
+  await open(h, `#/case/${CASE}?step=2`);
+  await see(h, 'Link these records as evidence?');
+  if ((await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:')) ?? '') ?? '[]'))).some((e) => e.type === 'case.link')) throw new Error('linked before the click');
+  await see(h, 'counts as documentary evidence');
+  await shot(h, 'p2-link-bridge');
+  await h.getByRole('button', { name: 'Link 2 records' }).click();
+  await see(h, 'Linked 2 record(s)');
+  const links = (await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'))).filter((e) => e.type === 'case.link');
+  if (links.map((e) => e.payload.ref).join(',') !== 'ev-0703,doc:D31#page32' || !links.every((e) => e.payload.why.startsWith('Cited by AI analysis run-e2e-fixture'))) throw new Error(`links: ${JSON.stringify(links.map((e) => e.payload))}`);
+  // Step 4: rationale draft fills the box, labelled, never submitted.
+  await open(h, `#/case/${CASE}?step=4`);
+  await h.getByRole('button', { name: 'Draft from the AI analysis' }).click();
+  const rationale = h.getByLabel('Why (at least 20 characters');
+  if (!(await rationale.inputValue()).startsWith('The corrected Meridian 1099 summary')) throw new Error('draft not filled');
+  await see(h, 'AI draft: check and edit it before you submit');
+  await shot(h, 'p2-rationale-draft');
+  await rationale.fill((await rationale.inputValue()) + ' Checked against page 32.');
+  await see(h, 'Edited from an AI draft');
+  const log = await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'));
+  if (log.some((e) => e.type === 'case.propose')) throw new Error('the draft was submitted automatically');
+  if (calls.length) throw new Error('an investigation was requested during the cached-report journey');
 });
 
 await browser.close();

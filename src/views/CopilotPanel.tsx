@@ -4,7 +4,8 @@ import { Person, Refs, Section, fmtDate } from '../ui/components';
 import type { CaseDef } from '../domain/cases';
 import type { CopilotRecord } from '../domain/workflow';
 import { REPORT_STATUS_LABEL, type InvestigationRun } from '../copilot/types';
-import { useCopilot } from '../ui/useCopilot';
+import { useCopilot, type Shown } from '../ui/useCopilot';
+import { AccessCodeForm } from '../ui/AccessCode';
 
 // AI investigation copilot for one case. The model's report is a suggestion:
 // it is shown with its deterministic validation result, and nothing changes
@@ -12,22 +13,23 @@ import { useCopilot } from '../ui/useCopilot';
 // or sends a drafted question themselves.
 
 export function CopilotPanel({ def }: { def: CaseDef }) {
-  const { state, actor, mask } = useApp();
+  const { state, mask } = useApp();
   const cs = state.cases[def.id];
-  const { status, statusErr, busy, elapsed, current, err, investigate } = useCopilot(def);
+  const { status, statusErr, enabled, isStaff, code, busy, elapsed, latest: current, shown, err, investigate } = useCopilot(def);
 
   const record = current ? cs.copilot.find((r) => r.runId === current.runId) : undefined;
-  const isStaff = ['preparer', 'reviewer', 'partner'].includes(actor.role);
 
   return (
-    <Section title={<>Investigation copilot <span className="tag tag-ai">AI · suggestions only</span></>} right={status?.configured ? <span className="small muted">{status.model} · max {status.maxToolCalls} tool calls</span> : null}>
+    <Section title={<>Investigation copilot <span className="tag tag-ai">AI · suggestions only</span></>} right={enabled ? <span className="small muted">{status!.model} · max {status!.maxToolCalls} tool calls</span> : null}>
       {statusErr && <p className="small neg">{statusErr}</p>}
-      {status && !status.configured && <p className="small banner warn">LLM not configured: {status.reason} The rest of the workpaper works without it.</p>}
+      {status && !enabled && <p className="small banner warn">AI copilot is off: {status.reason} The rest of the workpaper works without it.</p>}
+      {enabled && isStaff && !code && <AccessCodeForm />}
       <p className="small muted">The copilot reads this case's evidence with read-only tools and drafts an analysis. Every cited id and amount is checked against the packet. It cannot change the case, approve anything or contact the client.</p>
       <div className="row-wrap">
-        <button className="btn primary" disabled={!status?.configured || busy || !isStaff} onClick={investigate} title={isStaff ? '' : 'Staff roles only'}>
+        <button className="btn primary" disabled={!enabled || !code || busy || !isStaff} onClick={investigate} title={isStaff ? '' : 'Staff roles only'}>
           {busy ? `Investigating… ${elapsed}s` : current ? 'Investigate again' : 'Investigate with copilot'}
         </button>
+        {shown && current?.runId === shown.run.runId && <FreshnessTag shown={shown} />}
         {busy && <span className="small muted">Retrieving records and checking citations; this usually takes 20-90 seconds.</span>}
       </div>
       {busy && <div className="skeleton-block" aria-busy="true" aria-label="AI analysis loading"><div className="skeleton" /><div className="skeleton" /><div className="skeleton short" /></div>}
@@ -43,7 +45,13 @@ export function CopilotPanel({ def }: { def: CaseDef }) {
   );
 }
 
-function RunView({ def, runResult, record }: { def: CaseDef; runResult: InvestigationRun; record?: CopilotRecord }) {
+/** Whether a report was just made, reused from the cache, or made before the code or packet changed. */
+export function FreshnessTag({ shown }: { shown: Shown }) {
+  const label = shown.freshness === 'fresh' ? 'fresh' : shown.freshness === 'cached' ? 'cached' : 'made before the code or packet changed';
+  return <span className={`tag freshness f-${shown.freshness}`} title="Reports are reused per case, packet, case definition, copilot version and model.">{label} · made {fmtDate(shown.madeAt)}</span>;
+}
+
+export function RunView({ def, runResult, record }: { def: CaseDef; runResult: InvestigationRun; record?: CopilotRecord }) {
   const { run: dispatch } = useApp();
   const rep = runResult.report;
   const v = runResult.validation;

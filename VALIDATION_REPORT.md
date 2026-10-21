@@ -1,5 +1,12 @@
 # Validation report
 
+## Update 2026-10-21: copilot endpoint security, cache and AI helpers (Phase 2)
+
+Unit tests use the scripted provider double only (no model calls). The one live check is recorded below.
+
+- **Security** (`tests/phase2.test.ts`): copilot off without `COPILOT_ACCESS_CODE`; missing, wrong and right code (401 / 401 / 200); unknown case id (400); 3 runs a minute per IP; wrong-code limit per IP, and 401s do not use the daily budget; only the right-most `X-Forwarded-For` entry is trusted; daily cap with the 00:00 UTC reset and a default of 60; a failed model call counts and returns only a fixed safe message (no provider text, prompt or key); logs contain no code, key or report text; concurrent requests share one run; at most 2 runs at once.
+- **Cache and helpers**: only verified reports are cached, the first per key is kept, "Run again" replaces on purpose, reports under an older key are marked as changed; the cache key changes with model, packet and case definition; the three-line summary contains no ids (tested on the live RSU wording of 2026-10-21); rationale draft; the link bridge offers only retrieved packet records cited in facts, never calc ids, and links go through `authorize()` (client and administrator refused).
+
 ## Update 2026-10-19: investigation copilot
 
 Run on Node 24.13, Windows 11, Chrome headless. Model: `claude-sonnet-5-5` (Sonnet was chosen by the project owner instead of the Opus default), effort `high`.
@@ -85,7 +92,7 @@ Regression tests assert that the 10 now pass and that the 3 genuine errors still
 - The expectations were written by the same person who built the copilot, so treat these results as a regression baseline, not an accuracy claim.
 - Citation "support" is checked for ids and amounts, not for whether a sentence's meaning is entailed by the record.
 - One model, one effort level, no comparison with Haiku.
-- The endpoint has no authentication, and copilot permission checks run in the client-side command layer like the rest of the demo.
+- Copilot review permissions run in the client-side command layer like the rest of the demo. (As of 2026-10-21 the investigate endpoint requires a shared access code and is rate-limited; see the Phase 2 update.)
 
 ---
 

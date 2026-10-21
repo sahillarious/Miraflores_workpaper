@@ -35,7 +35,7 @@ Requires Node 20.12+ (developed on Node 24).
 
 ```bash
 npm install
-cp .env.example .env # optional: add ANTHROPIC_API_KEY to enable the copilot
+cp .env.example .env # optional: set ANTHROPIC_API_KEY and COPILOT_ACCESS_CODE to enable the copilot
 npm run dev          # http://localhost:5173 (app + copilot API)
 ```
 
@@ -46,14 +46,36 @@ npm run build        # typecheck + build to dist/
 npm start            # http://localhost:8787 (serves dist/ and the copilot API; reads .env)
 ```
 
-Without a key everything except the copilot works, and the copilot panel says it is not configured. `.env` is server-side only: no variable is exposed to the browser bundle (none uses the `VITE_` prefix), and `.env` is gitignored. Optional settings: `COPILOT_MODEL` (default `claude-sonnet-5-5`) and `COPILOT_EFFORT` (default `high`).
+Without a key or an access code everything except the copilot works, and the copilot says it is off and why. `.env` is server-side only: no variable is exposed to the browser bundle (none uses the `VITE_` prefix), and `.env` is gitignored.
+
+## AI copilot: access code, limits and cache
+
+| Setting (server env) | Default | What it does |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | none | Without it the copilot is off. |
+| `COPILOT_ACCESS_CODE` | none | Shared demo code. **Without it the copilot is off**, even with a key. Every investigate request must send it in the `x-access-code` header; it is compared with `crypto.timingSafeEqual` on SHA-256 digests. |
+| `COPILOT_DAILY_CAP` | `60` | Investigations per UTC day (resets at 00:00 UTC). |
+| `COPILOT_TRUST_PROXY` | off | Set to `1` behind exactly one reverse proxy (e.g. Render): the client IP is then the right-most `X-Forwarded-For` entry, the one the proxy added. |
+| `COPILOT_MODEL` / `COPILOT_EFFORT` | `claude-sonnet-5-5` / `high` | Model and effort. |
+
+**Spend.** One RSU investigation on 2026-10-21 cost about **$0.09** at list prices (40 s, 5 turns, 13 tool calls). The default cap of 60 investigations a day is therefore about **$5.40 a day** at that rate; set a matching spend limit on the API key. Cases differ, so treat this as an estimate.
+
+**Limits.** 3 investigations a minute per IP; 10 wrong access codes a minute per IP (then 429; wrong codes do not use the daily budget); at most 2 investigations running at once; concurrent requests for the same report share one run. A run counts towards the daily cap only if the model was actually called, including a call that failed. After the cap, requests get "Demo limit reached for today" and the rest of the workpaper keeps working. **All of these limits are kept in memory: they hold for a single server process and reset when it restarts.**
+
+**What the access code is not.** It is a shared gate for paid AI calls, not user authentication. The role switcher is a simulation, not a login. The access code does not protect the packet data or the workpaper: both are served to anyone who can open the page. In the browser the code is kept in `sessionStorage` only, and a rejected code is cleared.
+
+**Cache.** A report is cached in the browser's `localStorage` under a key made of the case id, the packet's SHA-256, a hash of the case definition, a hash of the copilot's prompt, tools and verifier version, and the model. Only verified reports are cached; failed, unverified, unauthorized and rate-limited results never are. The first verified report per key is reused (report wording varies between runs), shown as "cached · made <time>"; a new run shows "fresh". "Run again" replaces the cached report. If the key changes (new packet, case definition, copilot code or model), the old report is shown as "made before the code or packet changed" and a new one is requested. The copilot reads only the packet, so workpaper changes it cannot see never make a report stale.
+
+**Auto-investigate.** Opening a case starts an investigation automatically only for staff, with the copilot on, the access code entered in this browser session, and no cached report for the current key, at most once per key per session.
 
 ## Tests
 
 ```bash
-npm test             # 54 tests: domain rules + copilot tools, loop, verifier, permissions, API (no model calls)
+npm test             # 93 tests: domain rules, guided flow, masking, copilot tools, loop, verifier, permissions, API security and cache (no model calls)
 npm run build && npx vite preview --port 4173   # in one terminal
 npm run test:e2e     # 24-step browser journey (uses local Chrome or Edge via playwright-core)
+npm run test:e2e:flow              # 18 journeys: guided flow, help panel, masking, AI summary/cache/link bridge (no model calls)
+WIDTH=390 npm run test:e2e:flow    # the same at phone width
 npm run eval:copilot -- --dry       # check the copilot eval definitions (free)
 npm run eval:copilot -- --repeat 2  # live eval: real model calls, costs money (about $0.07 per run)
 npx tsx eval/rescore.ts eval/results/<file>.json   # re-verify saved runs with the current verifier (free)
@@ -63,7 +85,7 @@ npx tsx eval/rescore.ts eval/results/<file>.json   # re-verify saved runs with t
 
 ## Deploy
 
-**Not deployed.** `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser. The packet data is invented, but it should not be put on a public URL as-is: public hosting needs a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key. The copilot endpoint has no authentication, so keep it on localhost or behind the host's access control.
+**Not deployed.** `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser. The packet data is invented, but it should not be put on a public URL as-is: public hosting needs a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key and an access code (see "AI copilot: access code, limits and cache"). Deployment configuration is not done yet.
 
 ## Saving
 

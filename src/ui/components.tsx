@@ -17,8 +17,9 @@ export const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString('en
 export const fmtDay = (iso?: string) => (iso ? iso.slice(0, 10) : '—');
 
 export function Ref({ r, compact, version }: { r: string; compact?: boolean; version?: string }) {
-  const { ix } = useApp();
-  const x = resolveRef(ix, r, version);
+  const { ix, mask } = useApp();
+  const raw = resolveRef(ix, r, version);
+  const x = { ...raw, label: mask(raw.label), detail: raw.detail && mask(raw.detail), value: typeof raw.value === 'string' ? mask(raw.value) : raw.value };
   const lowConf = x.confidence !== undefined && x.confidence < 0.9;
   const inner = (
     <>
@@ -94,14 +95,15 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 export function Val({ v }: { v: unknown }) {
-  return <span className="mono">{fmtValue(v)}</span>;
+  const { mask } = useApp();
+  return <span className="mono">{mask(fmtValue(v))}</span>;
 }
 
 /** Sensitive values are masked; revealing requires clearance and is logged. */
 export function Sensitive({ value, what }: { value: string; what: string }) {
-  const { actor, run } = useApp();
+  const { actor, run, mask } = useApp();
   const [shown, setShown] = useState(false);
-  const masked = value.replace(/[0-9](?=[0-9-]{4})/g, '•');
+  const masked = mask(value);
   if (shown) return <span className="mono">{value} <button className="link small" onClick={() => setShown(false)}>hide</button></span>;
   return (
     <span className="mono">

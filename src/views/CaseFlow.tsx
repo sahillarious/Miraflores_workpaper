@@ -172,7 +172,7 @@ function Compare({ r }: { r: Reconciliation }) {
 }
 
 function StepProof({ def, onNext, onBack }: { def: CaseDef; onNext: () => void; onBack: () => void }) {
-  const { state } = useApp();
+  const { state, mask } = useApp();
   const cs = state.cases[def.id];
   const docs = useMemo(() => [...new Set(def.refs.filter((r) => ['doc', 'docpage'].includes(refKind(r))))], [def]);
   return (
@@ -182,7 +182,7 @@ function StepProof({ def, onNext, onBack }: { def: CaseDef; onNext: () => void; 
       {docs.length > 0 && <><h4>Documents this case relies on</h4><div className="refs">{docs.map((r) => <Ref key={r} r={r} />)}</div></>}
       <h4>Evidence linked to the decision</h4>
       {cs.links.length ? (
-        <ul className="plain small">{cs.links.map((l) => <li key={l.ref}><Ref r={l.ref} compact /> {l.why} <span className="muted">— <Person id={l.by} /></span></li>)}</ul>
+        <ul className="plain small">{cs.links.map((l) => <li key={l.ref}><Ref r={l.ref} compact /> {mask(l.why)} <span className="muted">— <Person id={l.by} /></span></li>)}</ul>
       ) : <p className="small muted">None yet. To link a record by hand, use <a href={`#/case/${def.id}?view=full&from=2`}>Show full details</a>.</p>}
       <ActionBar onBack={onBack}><button className="btn primary" onClick={onNext}>The proof checks out</button></ActionBar>
     </Section>
@@ -272,7 +272,7 @@ function StepFix({ def, fs, onNext, onBack }: { def: CaseDef; fs: FlowState; onN
 }
 
 function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: () => void }) {
-  const { ix, state, run, actor } = useApp();
+  const { ix, state, run, actor, mask } = useApp();
   const cs = state.cases[def.id];
   const initial: Outcome = def.suggestions.length && def.allowedOutcomes.includes('corrected') ? 'corrected' : def.allowedOutcomes[0];
   const [outcome, setOutcome] = useState<Outcome>(initial);
@@ -285,7 +285,7 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
   if (cs.status === 'resolved') {
     return (
       <Section title="Done">
-        {cs.resolution && <div className="decision"><strong>{OUTCOME_LABEL[cs.resolution.outcome]}</strong>: {cs.resolution.rationale}<div className="small muted">Prepared by <Person id={cs.resolution.by} /> · approved by <Person id={cs.resolution.approvedBy} /> {fmtDate(cs.resolution.approvedAt)}</div></div>}
+        {cs.resolution && <div className="decision"><strong>{OUTCOME_LABEL[cs.resolution.outcome]}</strong>: {mask(cs.resolution.rationale)}<div className="small muted">Prepared by <Person id={cs.resolution.by} /> · approved by <Person id={cs.resolution.approvedBy} /> {fmtDate(cs.resolution.approvedAt)}</div></div>}
         {fs.staleSignoff && <p className="neg">The sign-off is stale. Reopen the case in <a href={`#/case/${def.id}?view=full&from=4`}>full details</a>.</p>}
       </Section>
     );
@@ -293,7 +293,7 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
   if (cs.status === 'ready_for_approval') {
     return (
       <Section title="Submitted">
-        {cs.proposal && <div className="decision pending"><strong>{OUTCOME_LABEL[cs.proposal.outcome]}</strong>: {cs.proposal.rationale}<div className="small muted">Submitted by <Person id={cs.proposal.by} />, {fmtDate(cs.proposal.at)}</div></div>}
+        {cs.proposal && <div className="decision pending"><strong>{OUTCOME_LABEL[cs.proposal.outcome]}</strong>: {mask(cs.proposal.rationale)}<div className="small muted">Submitted by <Person id={cs.proposal.by} />, {fmtDate(cs.proposal.at)}</div></div>}
         <p className="small">{fs.items.find((i) => i.id === 'decision')!.detail}. Switch the demo role to a reviewer or partner to approve.</p>
       </Section>
     );
@@ -302,7 +302,7 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
   return (
     <Section title="Send">
       <h4>Questions for the client</h4>
-      {clientQs.length > 0 && <ul className="plain small">{clientQs.map((q) => <li key={q.id}>{q.text} — {q.answer ? <span className="pos">answered: {q.answer.text}</span> : <span className="muted">waiting for the client</span>}</li>)}</ul>}
+      {clientQs.length > 0 && <ul className="plain small">{clientQs.map((q) => <li key={q.id}>{mask(q.text)} — {q.answer ? <span className="pos">answered: {mask(q.answer.text)}</span> : <span className="muted">waiting for the client</span>}</li>)}</ul>}
       {unasked.length ? (
         <ul className="plain">{unasked.map((q) => (
           <li key={q} className="row-wrap"><span>{q}</span>
@@ -332,19 +332,19 @@ function StepSend({ def, fs, onBack }: { def: CaseDef; fs: FlowState; onBack: ()
 }
 
 function StepReview({ def, fs }: { def: CaseDef; fs: FlowState }) {
-  const { state, run } = useApp();
+  const { state, run, mask } = useApp();
   const cs = state.cases[def.id];
   const [reason, setReason] = useState('');
   const p = cs.proposal!;
   const adjs = cs.adjustments.filter((a) => a.decision?.status !== 'rejected');
   return (
     <Section title="Review and approve">
-      <div className="decision pending"><strong>{OUTCOME_LABEL[p.outcome]}</strong>: {p.rationale}<div className="small muted">Submitted by <Person id={p.by} />, {fmtDate(p.at)}</div></div>
+      <div className="decision pending"><strong>{OUTCOME_LABEL[p.outcome]}</strong>: {mask(p.rationale)}<div className="small muted">Submitted by <Person id={p.by} />, {fmtDate(p.at)}</div></div>
       <h4>What changed</h4>
       {adjs.length ? <ul className="plain small">{adjs.map((a) => <li key={a.id}><span className="mono">{a.lineKey}</span> {money(a.from)} → <strong>{money(a.to)}</strong> · <EffectView e={{ federal: a.federal, california: a.california, parts: [], basis: 'Estimate recorded with the adjustment' }} compact /> · {a.decision ? <>approved by <Person id={a.decision.by} /></> : 'pending'}</li>)}</ul> : <p className="small muted">No change to the return.</p>}
       <h4>Evidence</h4>
       {cs.links.length ? <div className="refs">{cs.links.map((l) => <Ref key={l.ref} r={l.ref} compact />)}</div> : <p className="small muted">No records linked.</p>}
-      {cs.questions.filter((q) => q.answer).map((q) => <p key={q.id} className="small">Client answer: {q.answer!.text}</p>)}
+      {cs.questions.filter((q) => q.answer).map((q) => <p key={q.id} className="small">Client answer: {mask(q.answer!.text)}</p>)}
       {fs.staleProposal && <p className="neg small">The evidence changed after submission, so approval will be refused. Return it with a reason.</p>}
       <label className="small" htmlFor="flow-return">Reason, if you return it to the preparer</label>
       <input id="flow-return" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason to return" aria-label="Reason to return" />

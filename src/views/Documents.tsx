@@ -129,7 +129,7 @@ function useCaseDocMap() {
 }
 
 export function DocumentView({ id }: { id: string }) {
-  const { ix, state, run, defsById } = useApp();
+  const { ix, state, run, defsById, mask } = useApp();
   const route = useRoute();
   const doc = ix.docs.get(id);
   const focusEv = route.query.get('ev') ?? undefined;
@@ -189,7 +189,7 @@ export function DocumentView({ id }: { id: string }) {
                   return (
                     <tr key={evId} className={evId === focusEv ? 'selected' : ''}>
                       <td><a href={`#/doc/${id}?ev=${evId}`} className="mono">{evId}</a> <span className="muted">p{u.ev.page}</span> {u.ev.label}</td>
-                      <td className="mono">{fmtValue(u.ev.value)}</td>
+                      <td className="mono">{mask(fmtValue(u.ev.value))}</td>
                       <td className={u.ev.confidence < 0.9 ? 'neg' : ''}>{u.ev.confidence}</td>
                       <td>{u.lines.length ? u.lines.map((k) => <a key={k} href={`#/line/${encodeURIComponent(k)}`} className="mono">{k} </a>) : <span className="muted">not used</span>}</td>
                     </tr>

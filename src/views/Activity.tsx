@@ -3,7 +3,7 @@ import { useApp } from '../ui/context';
 import { Person, Refs, Section, fmtDate } from '../ui/components';
 
 export function Activity() {
-  const { state, ix, actor, wp, toast, lastSeen, markSeen } = useApp();
+  const { state, ix, actor, wp, toast, lastSeen, markSeen, mask } = useApp();
   const [who, setWho] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const events = [...state.events].reverse().filter((e) => !who || e.actor === who);
@@ -52,7 +52,7 @@ export function Activity() {
                     <td><Person id={e.actor} /> <span className="muted">({e.role})</span></td>
                     <td className="mono">{e.type}{e.batch && <span className="muted"> · batch</span>}</td>
                     <td>{e.payload.caseId && <a href={`#/case/${e.payload.caseId}`} className="mono">{e.payload.caseId}</a>}{e.payload.docId && <a href={`#/doc/${e.payload.docId}`} className="mono">{e.payload.docId}</a>}{e.type === 'sensitive.view' && <span className="mono">{e.payload.what}</span>}</td>
-                    <td>{detail(e.payload)}</td>
+                    <td>{mask(detail(e.payload))}</td>
                     <td>{e.type !== 'undo' && e.type !== 'sensitive.view' && (e.actor === actor.id || actor.role === 'partner') && <button className="link small" onClick={() => { const r = wp.undo(actor, e.id); toast(r.ok ? 'Undone' : r.error, r.ok ? 'ok' : 'err'); }}>undo</button>}</td>
                   </tr>
                 ))}
@@ -72,7 +72,7 @@ export function Activity() {
               {ix.packet.timeline.map((t) => (
                 <li key={t.id} id={t.id} className={t.at > ix.current.computed_at ? 'future' : ''}>
                   <span className="mono small">{t.at.slice(0, 10)}</span> <strong>{t.event.replace(/_/g, ' ')}</strong> {t.actor && <Person id={t.actor} />}
-                  {t.detail && <div className="small">{t.detail}</div>}
+                  {t.detail && <div className="small">{mask(t.detail)}</div>}
                   {t.refs.length > 0 && <div><Refs refs={t.refs.map((r) => (r === 'qa-01' ? 'qa-01' : r))} compact /></div>}
                 </li>
               ))}

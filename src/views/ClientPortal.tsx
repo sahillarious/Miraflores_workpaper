@@ -9,7 +9,7 @@ import { useApp } from '../ui/context';
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export function ClientPortal() {
-  const { defs, state, actor, actors, run } = useApp();
+  const { defs, state, actor, actors, run, mask } = useApp();
   const [text, setText] = useState<Record<string, string>>({});
   const items = defs.flatMap((d) => state.cases[d.id].questions.filter((q) => q.to === 'client').map((q) => ({ caseId: d.id, q })));
   const open = items.filter((x) => !x.q.answer);
@@ -23,7 +23,7 @@ export function ClientPortal() {
       {open.length === 0 && <div className="empty">No questions waiting. Switch back to a staff role to continue the review.</div>}
       {open.map(({ caseId, q }) => (
         <div key={q.id} className="portal-card">
-          <h2>{q.text}</h2>
+          <h2>{mask(q.text)}</h2>
           <p className="small muted">Asked by {asker(q.by)} on {day(q.at)}{q.expected ? ` · please include: ${q.expected}` : ''}</p>
           <textarea rows={3} value={text[q.id] ?? ''} onChange={(e) => setText({ ...text, [q.id]: e.target.value })} aria-label="Your answer" />
           <button className="btn primary" disabled={!(text[q.id] ?? '').trim()} onClick={() => run({ type: 'case.answer', payload: { caseId, qid: q.id, text: text[q.id] } }, 'Thank you — answer sent')}>Send answer</button>
@@ -34,8 +34,8 @@ export function ClientPortal() {
           <h2 className="portal-h">Answered</h2>
           {done.map(({ q }) => (
             <div key={q.id} className="portal-card portal-done">
-              <strong>{q.text}</strong>
-              <p>{q.answer!.text}</p>
+              <strong>{mask(q.text)}</strong>
+              <p>{mask(q.answer!.text)}</p>
               <div className="small muted">Sent {day(q.answer!.at)}</div>
             </div>
           ))}

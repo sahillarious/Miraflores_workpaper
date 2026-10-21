@@ -64,7 +64,7 @@ function CaseHeader({ def }: { def: CaseDef }) {
 // ---------------------------------------------------------------- Pane A
 
 function EvidencePane({ def }: { def: CaseDef }) {
-  const { ix, state, run, toast } = useApp();
+  const { ix, state, run, toast, mask } = useApp();
   const cs = state.cases[def.id];
   const allRefs = useMemo(() => {
     const seen = new Set<string>();
@@ -98,7 +98,7 @@ function EvidencePane({ def }: { def: CaseDef }) {
       const page = kind === 'doc' ? 1 : Number(focus.split('#page')[1]);
       viewer = <DocPage doc={ix.docs.get(docId)!} page={page} compact />;
     } else {
-      viewer = <div className="paper compact"><div className="paper-h"><strong>{focusR.label}</strong></div><div className="paper-body">{focusR.value ?? '—'}</div></div>;
+      viewer = <div className="paper compact"><div className="paper-h"><strong>{mask(focusR.label)}</strong></div><div className="paper-body">{focusR.value === undefined ? '—' : mask(String(focusR.value))}</div></div>;
     }
   }
 
@@ -125,8 +125,8 @@ function EvidencePane({ def }: { def: CaseDef }) {
                 <li key={r} className={focus === r ? 'on' : ''}>
                   <button className="ev-item" onClick={() => setFocus(r)}>
                     <span className="mono small">{r}</span>
-                    <span className="ev-label">{x.label.replace(`${r} · `, '')}</span>
-                    {x.value !== undefined && <span className="ev-val">{String(x.value).slice(0, 140)}</span>}
+                    <span className="ev-label">{mask(x.label.replace(`${r} · `, ''))}</span>
+                    {x.value !== undefined && <span className="ev-val">{mask(String(x.value)).slice(0, 140)}</span>}
                     <span className="ev-meta">
                       {x.confidence !== undefined && <span className={x.confidence < 0.9 ? 'neg' : 'muted'}>conf {x.confidence}</span>}
                       {disp && <span className="muted"> · {DISPOSITION_LABEL[disp].split(' (')[0]}</span>}
@@ -146,11 +146,11 @@ function EvidencePane({ def }: { def: CaseDef }) {
         <input value={linkRef} onChange={(e) => setLinkRef(e.target.value)} placeholder="e.g. D11 or ev-0066" aria-label="Reference to link" />
         <input value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Why it supports the conclusion" aria-label="Why" />
         <button className="btn" disabled={!linkRef.trim()} onClick={tryLink}>Link</button>
-        {linkRef.trim() && <div className="small muted">{(() => { const r = resolveRef(ix, linkRef.trim()); return r.kind === 'unknown' ? 'Unrecognised reference' : `${refKindLabel(r.kind)}: ${r.label}`; })()}</div>}
+        {linkRef.trim() && <div className="small muted">{(() => { const r = resolveRef(ix, linkRef.trim()); return r.kind === 'unknown' ? 'Unrecognised reference' : `${refKindLabel(r.kind)}: ${mask(r.label)}`; })()}</div>}
         {cs.links.length > 0 && (
           <ul className="plain small">
             {cs.links.map((l) => (
-              <li key={l.ref}><Ref r={l.ref} compact /> {l.why} <span className="muted">— <Person id={l.by} />, {fmtDate(l.at)}</span> <button className="link small" onClick={() => run({ type: 'case.unlink', payload: { caseId: def.id, ref: l.ref } }, 'Unlinked')}>unlink</button></li>
+              <li key={l.ref}><Ref r={l.ref} compact /> {mask(l.why)} <span className="muted">— <Person id={l.by} />, {fmtDate(l.at)}</span> <button className="link small" onClick={() => run({ type: 'case.unlink', payload: { caseId: def.id, ref: l.ref } }, 'Unlinked')}>unlink</button></li>
             ))}
           </ul>
         )}
@@ -216,7 +216,7 @@ function AskButton({ def, text }: { def: CaseDef; text: string }) {
 }
 
 function ReconInspector({ def, r }: { def: CaseDef; r: Reconciliation }) {
-  const { state, run } = useApp();
+  const { state, run, mask } = useApp();
   const cs = state.cases[def.id];
   const cur = cs.recon[r.id];
   const [status, setStatus] = useState<ReconStatus>(cur?.status ?? 'unchecked');
@@ -233,7 +233,7 @@ function ReconInspector({ def, r }: { def: CaseDef; r: Reconciliation }) {
       </div>
       <p className="small"><strong>Expected:</strong> {r.expectation}</p>
       {r.finding && <p className="small"><strong>What the evidence shows:</strong> {r.finding}</p>}
-      {cur && <p className="small">Conclusion: <strong title={RECON_LABEL[cur.status]}>{RECON_PLAIN[cur.status]}</strong> — {cur.note} <span className="muted">(<Person id={cur.by} />, {fmtDate(cur.at)})</span></p>}
+      {cur && <p className="small">Conclusion: <strong title={RECON_LABEL[cur.status]}>{RECON_PLAIN[cur.status]}</strong> — {mask(cur.note)} <span className="muted">(<Person id={cur.by} />, {fmtDate(cur.at)})</span></p>}
       <div className="inline-form">
         <select value={status} onChange={(e) => setStatus(e.target.value as ReconStatus)} aria-label="Evidence check result">
           {(Object.keys(RECON_LABEL) as ReconStatus[]).map((s) => <option key={s} value={s}>{RECON_PLAIN[s]}</option>)}
@@ -269,7 +269,7 @@ const fmtCell = (v: unknown) => (typeof v === 'number' ? money(v, { cents: !Numb
 // ---------------------------------------------------------------- Pane C
 
 function WorkflowPane({ def }: { def: CaseDef }) {
-  const { ix, state, run, actor, actors, wp, toast } = useApp();
+  const { ix, state, run, actor, actors, wp, toast, mask } = useApp();
   const cs = state.cases[def.id];
   const f = caseFacts(ix, def, state);
   const staff = actors.filter((a) => ['preparer', 'reviewer', 'partner'].includes(a.role));
@@ -327,7 +327,7 @@ function WorkflowPane({ def }: { def: CaseDef }) {
           {cs.adjustments.map((a) => (
             <div key={a.id} className="adj">
               <div><a href={`#/line/${a.lineKey}`} className="mono">{a.lineKey}</a> {money(a.from, { cents: !Number.isInteger(a.from) })} → <strong>{money(a.to, { cents: !Number.isInteger(a.to) })}</strong> · Fed {money(a.federal, { sign: true })} / CA {money(a.california, { sign: true })}</div>
-              <div className="small">{a.reason} — <Person id={a.by} />, {fmtDate(a.at)}</div>
+              <div className="small">{mask(a.reason)} — <Person id={a.by} />, {fmtDate(a.at)}</div>
               {a.decision ? <div className={`small ${a.decision.status === 'approved' ? 'pos' : 'neg'}`}>{a.decision.status} by <Person id={a.decision.by} />: {a.decision.note}</div> : (
                 <div className="row-wrap small">
                   <span className="muted">Awaiting {Math.max(Math.abs(a.federal), Math.abs(a.california)) > PARTNER_THRESHOLD ? 'partner' : 'reviewer'} approval</span>
@@ -373,9 +373,9 @@ function WorkflowPane({ def }: { def: CaseDef }) {
       <Section title={`Questions (${cs.questions.length})`}>
         {cs.questions.map((q) => (
           <div key={q.id} className="q">
-            <div><strong>To {q.to === 'client' ? 'client' : <Person id={q.toWho} />}:</strong> {q.text}</div>
+            <div><strong>To {q.to === 'client' ? 'client' : <Person id={q.toWho} />}:</strong> {mask(q.text)}</div>
             <div className="small muted">Asked by <Person id={q.by} />, {fmtDate(q.at)} · expected: {q.expected || '—'}</div>
-            {q.answer ? <div className="answer">{q.answer.text} <span className="small muted">— <Person id={q.answer.by} />, {fmtDate(q.answer.at)} (recorded as evidence)</span></div>
+            {q.answer ? <div className="answer">{mask(q.answer.text)} <span className="small muted">— <Person id={q.answer.by} />, {fmtDate(q.answer.at)} (recorded as evidence)</span></div>
               : q.to === 'client' ? <div className="small muted">Awaiting client answer (switch role to the client to answer).</div>
               : <div className="inline-form"><input value={answer[q.id] ?? ''} onChange={(e) => setAnswer({ ...answer, [q.id]: e.target.value })} placeholder="Answer" aria-label="Answer" /><button className="btn small" onClick={() => run({ type: 'case.answer', payload: { caseId: def.id, qid: q.id, text: answer[q.id] } }, 'Answer recorded')}>Record</button></div>}
           </div>
@@ -398,9 +398,9 @@ function WorkflowPane({ def }: { def: CaseDef }) {
       <Section title={`Notes (${cs.notes.length})`}>
         {cs.notes.map((n) => (
           <div key={n.id} className={`note-item${n.blocking && !n.cleared ? ' blocking' : ''}`}>
-            <div>{n.blocking && <span className="pill st-blocked">review note{n.cleared ? ' (cleared)' : ' · blocks filing'}</span>} {n.text}</div>
+            <div>{n.blocking && <span className="pill st-blocked">review note{n.cleared ? ' (cleared)' : ' · blocks filing'}</span>} {mask(n.text)}</div>
             <div className="small muted"><Person id={n.by} />, {fmtDate(n.at)}</div>
-            {n.cleared && <div className="small pos">Cleared by <Person id={n.cleared.by} />: {n.cleared.text}</div>}
+            {n.cleared && <div className="small pos">Cleared by <Person id={n.cleared.by} />: {mask(n.cleared.text)}</div>}
             {n.blocking && !n.cleared && (
               <div className="inline-form"><input value={clearText[n.id] ?? ''} onChange={(e) => setClearText({ ...clearText, [n.id]: e.target.value })} placeholder="How it was addressed" aria-label="Clear note" /><button className="btn small" onClick={() => run({ type: 'case.note.clear', payload: { caseId: def.id, noteId: n.id, text: clearText[n.id] } }, 'Review note cleared')}>Clear</button></div>
             )}
@@ -416,13 +416,13 @@ function WorkflowPane({ def }: { def: CaseDef }) {
       <Section title="Decision">
         {cs.resolution && (
           <div className="decision">
-            <div><strong>{OUTCOME_LABEL[cs.resolution.outcome]}</strong>: {cs.resolution.rationale}</div>
+            <div><strong>{OUTCOME_LABEL[cs.resolution.outcome]}</strong>: {mask(cs.resolution.rationale)}</div>
             <div className="small muted">Prepared by <Person id={cs.resolution.by} /> {fmtDate(cs.resolution.at)} · approved by <Person id={cs.resolution.approvedBy} /> {fmtDate(cs.resolution.approvedAt)}</div>
           </div>
         )}
         {cs.status === 'ready_for_approval' && cs.proposal && (
           <div className="decision pending">
-            <div><strong>Proposed: {OUTCOME_LABEL[cs.proposal.outcome]}</strong> — {cs.proposal.rationale}</div>
+            <div><strong>Proposed: {OUTCOME_LABEL[cs.proposal.outcome]}</strong> — {mask(cs.proposal.rationale)}</div>
             <div className="small muted">by <Person id={cs.proposal.by} />, {fmtDate(cs.proposal.at)}{f.needsPartner && cs.proposal.outcome === 'corrected' ? ` · needs partner (effect over ${PARTNER_THRESHOLD.toLocaleString()})` : ''}</div>
             <div className="row-wrap">
               <button className="btn primary" onClick={() => run({ type: 'case.resolve', payload: { caseId: def.id } }, 'Approved and resolved')}>Approve & sign off</button>
@@ -455,7 +455,7 @@ function WorkflowPane({ def }: { def: CaseDef }) {
           <ol className="history">
             {[...cs.history].reverse().map((e) => (
               <li key={e.id}>
-                <span className="small muted">{fmtDate(e.at)}</span> <Person id={e.actor} /> <span className="mono small">{e.type}</span> {describe(e.payload)}
+                <span className="small muted">{fmtDate(e.at)}</span> <Person id={e.actor} /> <span className="mono small">{e.type}</span> {mask(describe(e.payload))}
                 {e.actor === actor.id && <button className="link small" onClick={() => { const r = wp.undo(actor, e.id); if (!r.ok) toast(r.error, 'err'); else toast('Undone'); }}>undo</button>}
               </li>
             ))}

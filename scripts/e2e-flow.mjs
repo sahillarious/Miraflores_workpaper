@@ -63,7 +63,7 @@ const b = a ? await journey('(b) partner approves the three adjustments', async 
   await as(p, 'st-03');
   await open(p, '#/case/WP-RSU-BASIS?step=3');
   await p.getByRole('button', { name: 'Approve all' }).click();
-  await see(p, 'Adjustments approved');
+  await checklist(p, 'Adjustments approved').filter({ hasText: '3 approved' }).waitFor({ timeout: 5000 });
   if (!(await checklist(p, 'Adjustments approved').textContent()).includes('3 approved')) throw new Error('checklist does not show 3 approved');
 }) : (skip('(b) partner approves'), false);
 if (b) await journey('(c) preparer submits, a partner resolves, the checklist follows', async () => {
@@ -300,6 +300,51 @@ await journey('(h-g) Deep dive opens full details and "Back to guided steps" ret
   if (!h.url().includes('view=full&from=3')) throw new Error(`url ${h.url()}`);
   await h.getByRole('link', { name: '← Back to guided steps (step 3)' }).click();
   await see(h, 'Step 3 of 4');
+});
+
+// ---- identifier masking -----------------------------------------------------------
+await journey('(m) identifiers are masked for every role; unmask is refused without clearance and logged with it', async () => {
+  const pk = await (await fetch(new URL('./data/okafor_lindqvist_2025_packet.json', BASE))).json();
+  const hh = pk.household;
+  const secrets = [...hh.people.map((x) => x.ssn), ...pk.prior_years.return_2024.dependents.map((x) => x.ssn), ...hh.people.map((x) => x.ip_pin), String(hh.bank_account_for_refund_or_payment.account), String(hh.bank_account_for_refund_or_payment.routing)].filter(Boolean);
+  const pages = ['#/case/WP-DEPENDENT-TIN', '#/case/WP-DEPENDENT-TIN?step=2', '#/case/WP-DEPENDENT-TIN?view=full', '#/doc/D06?page=1', '#/doc/D08', '#/client', '#/prior?ptr=%2Freturn_2024%2Fdependents', '#/case/WP-READ-VS-PRINTED?view=full'];
+  const noLeak = async (pg, where) => {
+    const html = await pg.content();
+    for (const x of secrets) if (html.includes(x)) throw new Error(`${where}: full identifier ending ${String(x).slice(-4)} is in the DOM`);
+    if (/\b\d{3}-\d{2}-\d{4}\b/.test(html)) throw new Error(`${where}: an SSN-shaped number is in the DOM`);
+    if (/\b[A-Z]{2}\d{2}(?: ?\d{4}){3,7}\b/.test(html)) throw new Error(`${where}: an IBAN is in the DOM`);
+  };
+  for (const role of ['st-01', 'st-02', 'st-03', 'st-04']) {
+    const h = await newPage();
+    await as(h, role);
+    for (const hash of pages) { await open(h, hash); await h.waitForTimeout(150); await noLeak(h, `${role} ${hash}`); }
+    if (role === 'st-01') await shot(h, 'masked-full');
+  }
+  // The no-clearance preparer cannot reveal; the button says why.
+  const m = await newPage();
+  await as(m, 'st-04');
+  await open(m, '#/case/WP-DEPENDENT-TIN');
+  const btn = m.getByRole('button', { name: 'Identifiers masked' });
+  if (!(await btn.isDisabled())) throw new Error('no-clearance preparer can press reveal');
+  await see(m, '***-**-3390');
+  await shot(m, 'masked-no-clearance');
+  // The client never gets a reveal control and sees no identifiers.
+  const c = await newPage();
+  await as(c, 'cu-01');
+  for (const hash of ['#/', '#/case/WP-DEPENDENT-TIN', '#/doc/D06?page=1']) { await open(c, hash); await noLeak(c, `client ${hash}`); }
+  if (await c.getByRole('button', { name: /Show identifiers|Identifiers masked/ }).count()) throw new Error('client sees a reveal control');
+  // A cleared preparer reveals; it is logged as sensitive.view and can be hidden again.
+  const r = await newPage();
+  await open(r, '#/case/WP-DEPENDENT-TIN');
+  await r.getByRole('button', { name: 'Show identifiers (logged)' }).click();
+  await see(r, 'Identifiers shown (logged)');
+  if (!(await r.content()).includes('666-74-3390')) throw new Error('reveal did not show the identifier');
+  const log = await r.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'));
+  if (!log.some((e) => e.type === 'sensitive.view' && e.payload.what === 'doc:D06#page1' && e.actor === 'st-01')) throw new Error('reveal not logged');
+  await r.getByRole('button', { name: 'Hide identifiers' }).click();
+  await noLeak(r, 'after hide');
+  await open(r, '#/activity');
+  await see(r, 'doc:D06#page1');
 });
 
 await browser.close();

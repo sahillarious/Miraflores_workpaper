@@ -116,13 +116,13 @@ function useDispatch() {
 }
 
 function AskClientCard({ def, onDone }: { def: CaseDef; onDone: Done }) {
-  const { ix, defsById, state, actor, wp } = useApp();
+  const { ix, defsById, state, actor, wp, mask } = useApp();
   const dispatch = useDispatch();
   const cs = state.cases[def.id];
   const draft = useMemo(() => {
     const last = cs.copilot.at(-1);
     const rep = last ? loadRun(last.runId)?.report : null;
-    if (rep?.client_question_draft) return { text: rep.client_question_draft, from: 'Prefilled from the AI draft. Check it before sending.', source: `copilot:${last!.runId}` };
+    if (rep?.client_question_draft) return { text: mask(rep.client_question_draft), from: 'Prefilled from the AI draft. Check it before sending.', source: `copilot:${last!.runId}` };
     const q = def.openQuestions.find((x) => !cs.questions.some((y) => y.text === x));
     if (q) return { text: q, from: 'Prefilled from this case’s open question.', source: undefined };
     return { text: '', from: '', source: undefined };
@@ -179,7 +179,7 @@ function AskColleagueCard({ def, onDone }: { def: CaseDef; onDone: Done }) {
 }
 
 function AiCard({ def, step }: { def: CaseDef; step: number }) {
-  const { actor } = useApp();
+  const { actor, mask } = useApp();
   const { status, statusErr, busy, elapsed, current, err, investigate } = useCopilot(def);
   const isStaff = ['preparer', 'reviewer', 'partner'].includes(actor.role);
   const reason = statusErr ?? (!status ? 'checking whether the AI service is available…' : !status.configured ? (status.reason ?? 'the AI service is not configured.') : !isStaff ? 'staff roles only.' : null);
@@ -198,7 +198,7 @@ function AiCard({ def, step }: { def: CaseDef; step: number }) {
       {!busy && rep && (
         <div className="banner ai small">
           <strong>AI suggestion, not a verified finding{current?.validation?.passed ? '' : ' (failed verification; do not rely on it)'}.</strong>{' '}
-          {REPORT_STATUS_LABEL[rep.status]}. {rep.summary}{' '}
+          {REPORT_STATUS_LABEL[rep.status]}. {mask(rep.summary)}{' '}
           <a href={`#/case/${def.id}?view=full&from=${step}`}>Review it in full details</a>
         </div>
       )}

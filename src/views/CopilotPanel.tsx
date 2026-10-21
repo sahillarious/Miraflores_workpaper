@@ -12,7 +12,7 @@ import { useCopilot } from '../ui/useCopilot';
 // or sends a drafted question themselves.
 
 export function CopilotPanel({ def }: { def: CaseDef }) {
-  const { state, actor } = useApp();
+  const { state, actor, mask } = useApp();
   const cs = state.cases[def.id];
   const { status, statusErr, busy, elapsed, current, err, investigate } = useCopilot(def);
 
@@ -32,7 +32,8 @@ export function CopilotPanel({ def }: { def: CaseDef }) {
       </div>
       {busy && <div className="skeleton-block" aria-busy="true" aria-label="AI analysis loading"><div className="skeleton" /><div className="skeleton" /><div className="skeleton short" /></div>}
       {err && <p className="small neg" role="alert">Copilot: {err}</p>}
-      {current && <RunView def={def} runResult={current} record={record} />}
+      {/* Everything shown from a run (report, trace, issues) passes through the display mask once. */}
+      {current && <RunView def={def} runResult={JSON.parse(mask(JSON.stringify(current)))} record={record} />}
       {cs.copilot.length > 1 && (
         <details className="small"><summary>Earlier runs ({cs.copilot.length - 1})</summary>
           <ul className="plain">{cs.copilot.slice(0, -1).reverse().map((r) => <li key={r.runId}>{fmtDate(r.at)} · {r.outcome} · {r.status ?? '—'} · {r.review ? `${r.review.decision} by ` : 'not reviewed'}{r.review && <Person id={r.review.by} />}</li>)}</ul>

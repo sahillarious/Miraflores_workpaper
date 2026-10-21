@@ -8,7 +8,7 @@ import { resolveRef } from '../domain/refs';
 const fmtV = (v: unknown) => (typeof v === 'number' ? money(v, { cents: !Number.isInteger(v) }) : v === undefined ? '—' : String(v));
 
 export function LineTrace({ k }: { k: string }) {
-  const { ix, defs, state } = useApp();
+  const { ix, defs, state, mask } = useApp();
   const route = useRoute();
   const version = route.query.get('v') ?? ix.current.version;
   const l = line(ix, k, version);
@@ -53,8 +53,8 @@ export function LineTrace({ k }: { k: string }) {
                   return (
                     <tr key={s}>
                       <td><Ref r={s} compact /></td>
-                      <td>{r.label.replace(`${s} · `, '')}{r.detail && <div className="muted">{r.detail}</div>}</td>
-                      <td className="num mono">{r.value}</td>
+                      <td>{mask(r.label.replace(`${s} · `, ''))}{r.detail && <div className="muted">{mask(r.detail)}</div>}</td>
+                      <td className="num mono">{typeof r.value === 'string' ? mask(r.value) : r.value}</td>
                       <td className={r.confidence !== undefined && r.confidence < 0.9 ? 'neg' : 'muted'}>{r.confidence ?? ''}</td>
                     </tr>
                   );

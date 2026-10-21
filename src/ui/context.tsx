@@ -4,9 +4,11 @@ import { independentChecks, type CheckResult } from '../domain/checks';
 import type { PacketIndex } from '../domain/packetIndex';
 import type { Workpaper } from '../domain/store';
 import { buildActors, type Actor, type Command, type WorkState } from '../domain/workflow';
+import { makeMask, maskDefs, type Mask } from './mask';
 
 interface Ctx {
   ix: PacketIndex;
+  /** Case definitions with display text masked (identifiers keep their last four characters). */
   defs: CaseDef[];
   defsById: Map<string, CaseDef>;
   wp: Workpaper;
@@ -19,6 +21,8 @@ interface Ctx {
   toast: (msg: string, kind?: 'ok' | 'err') => void;
   lastSeen: string;
   markSeen: () => void;
+  /** The one display-masking function (see ui/mask.ts). */
+  mask: Mask;
 }
 
 const C = createContext<Ctx | null>(null);
@@ -31,7 +35,9 @@ function writeLS(k: string, v: string) {
   try { localStorage.setItem(k, v); } catch { /* ignore */ }
 }
 
-export function AppProvider({ ix, defs, wp, children }: { ix: PacketIndex; defs: CaseDef[]; wp: Workpaper; children: ReactNode }) {
+export function AppProvider({ ix, defs: rawDefs, wp, children }: { ix: PacketIndex; defs: CaseDef[]; wp: Workpaper; children: ReactNode }) {
+  const mask = useMemo(() => makeMask(ix), [ix]);
+  const defs = useMemo(() => maskDefs(rawDefs, mask), [rawDefs, mask]);
   const state = useSyncExternalStore((f) => wp.subscribe(f), () => wp.state);
   const actors = useMemo(() => buildActors(ix), [ix]);
   const [actorId, setActorId] = useState(() => readLS('mf-actor', 'st-01'));
@@ -62,6 +68,7 @@ export function AppProvider({ ix, defs, wp, children }: { ix: PacketIndex; defs:
     toast,
     lastSeen,
     markSeen: () => { const now = new Date().toISOString(); writeLS(seenKey, now); setLastSeen(now); },
+    mask,
   };
 
   return (

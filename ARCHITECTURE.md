@@ -126,6 +126,7 @@ The report schema (`src/copilot/schema.ts`) has:
 
 - Only one case's retrieved records go to the model, never the packet. Tool output is redacted first: SSNs, the refund account, the IBAN and IP PINs are masked to their last four characters, enough to see a transposition such as 3309 vs 3390. Each tool result is capped at 12,000 characters.
 - The server logs only run metadata (case, outcome, turns, tool calls, tokens, latency), never prompts, evidence or report text.
+- The same redactor masks identifiers in the UI (`src/ui/mask.ts`): document pages, value cards, case text (the UI's case definitions are masked copies; ids, refs and amounts are unchanged), history, copilot output and the client portal. Unmasking a document page uses the existing `sensitive.view` command (logged, refused without clearance). This is display masking only: the packet JSON downloaded by the browser and the localStorage event log still contain the identifiers.
 - In the browser, the full report is cached in localStorage for that browser only; the event log holds a summary (status, cited ids, first next step, usage).
 - Prompts and responses are processed by Anthropic under the API account's data-retention terms. Check the account's settings before using real client data.
 - The API key lives only in the server environment (`.env`, gitignored). The build was checked to contain neither the key nor the SDK.

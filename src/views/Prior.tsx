@@ -5,7 +5,7 @@ import { resolvePointer } from '../domain/packetIndex';
 
 /** Prior-year records and agency records, browsable by JSON pointer (the packet's py:/ and agency:/ references). */
 export function PriorRecords() {
-  const { ix } = useApp();
+  const { ix, mask } = useApp();
   const route = useRoute();
   const ptr = route.query.get('ptr');
   const agency = route.query.get('agency');
@@ -17,7 +17,7 @@ export function PriorRecords() {
       <div className="page-h"><div><h1>Prior year and agency records</h1><p className="muted">Prior preparer: {r24.prepared_by}, filed {r24.filed}.</p></div></div>
       {(ptr || agency) && (
         <Section title={<>Referenced record <span className="mono">{ptr ? `py:${ptr}` : `agency:${agency}`}</span></>}>
-          <pre className="json">{JSON.stringify(focusVal, null, 2) ?? 'not found'}</pre>
+          <pre className="json">{mask(JSON.stringify(focusVal, null, 2) ?? 'not found')}</pre>
         </Section>
       )}
       <div className="grid-2">
@@ -29,10 +29,10 @@ export function PriorRecords() {
         </Section>
         <div className="stack">
           <Section title="Carryovers into 2025">
-            <pre className="json">{JSON.stringify(ix.packet.prior_years.carryovers_into_2025, null, 2)}</pre>
+            <pre className="json">{mask(JSON.stringify(ix.packet.prior_years.carryovers_into_2025, null, 2))}</pre>
           </Section>
           <Section title="Basis records (gaps are real gaps)">
-            <pre className="json">{JSON.stringify(ix.packet.prior_years.basis_records, null, 2)}</pre>
+            <pre className="json">{mask(JSON.stringify(ix.packet.prior_years.basis_records, null, 2))}</pre>
           </Section>
         </div>
       </div>
@@ -45,7 +45,7 @@ export function PriorRecords() {
           ))}
         </Section>
         <Section title="FTB account, notices, e-file">
-          <pre className="json">{JSON.stringify({ ftb_account: ix.packet.tax_agency_records.ftb_account, notices: ix.packet.tax_agency_records.notices, efile: ix.packet.tax_agency_records.efile }, null, 2)}</pre>
+          <pre className="json">{mask(JSON.stringify({ ftb_account: ix.packet.tax_agency_records.ftb_account, notices: ix.packet.tax_agency_records.notices, efile: ix.packet.tax_agency_records.efile }, null, 2))}</pre>
         </Section>
       </div>
     </div>
@@ -54,7 +54,7 @@ export function PriorRecords() {
 
 /** Depreciation by asset: federal vs California vs AMT, with disposals. */
 export function Assets() {
-  const { ix } = useApp();
+  const { ix, mask } = useApp();
   const route = useRoute();
   const focus = route.query.get('focus');
   const assets = ix.current.assets;
@@ -76,7 +76,7 @@ export function Assets() {
               <td className="num">{money(a.federal?.accumulated_end, { cents: true })}</td>
               <td className="num">{money(a.california?.depreciation_2025, { cents: true })}</td>
               <td className="num">{money(a.amt?.difference_from_regular, { cents: true })}</td>
-              <td className="small">{a.disposed ? (typeof a.disposed === 'string' ? a.disposed : JSON.stringify(a.disposed)) : a.disposition ? JSON.stringify(a.disposition) : '—'}</td>
+              <td className="small">{a.disposed ? mask(typeof a.disposed === 'string' ? a.disposed : JSON.stringify(a.disposed)) : a.disposition ? JSON.stringify(a.disposition) : '—'}</td>
               <td className="num">{co[a.asset_id] !== undefined ? money(co[a.asset_id], { cents: true }) : '—'}</td>
             </tr>
           ))}

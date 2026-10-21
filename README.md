@@ -21,6 +21,14 @@ A web-native tax workpaper for one complex household's return. Reviewers work fr
 - **Investigation copilot (AI, optional):** on any case, a bounded tool-calling agent (Claude Sonnet 5.5) retrieves the case's records with read-only tools, compares values with deterministic arithmetic, and submits a structured report: facts, hypotheses, missing information, next steps and an optional draft client question. Every cited id and every amount is checked against the packet before the report is shown. Reports are labelled as suggestions; a reviewer accepts, edits or rejects them, and nothing changes the case on its own. Details: ARCHITECTURE.md → Investigation copilot; results: VALIDATION_REPORT.md.
 - **Roles (demo switcher):** preparer, preparer without clearance (SSNs masked, unmasking refused), reviewer, partner, administrator, client. Permissions are enforced in the command layer, not just hidden in the UI.
 
+## Identifier masking (display only)
+
+SSNs, IBANs, IP PINs and the refund bank account and routing numbers are masked everywhere they are displayed, for every role, keeping the last four characters (`***-**-3390`; an IP PIN after the words "IP PIN" is fully masked). Masking covers the simulated document pages, evidence and value cards, reference chips, case text, history and activity, the copilot's report and trace, the prior-year JSON views and the client portal. One function does it: the same redactor that masks tool output before it reaches the AI model (`src/copilot/redact.ts`, used through `src/ui/mask.ts`).
+
+Staff with clearance can reveal a document page's identifiers ("Show identifiers"), or a household value on Client records. Both use the existing `sensitive.view` command: the reveal is logged (Activity → sensitive data views), refused for staff without clearance, and never offered to the client.
+
+**This is display masking, not data protection.** The identifiers are still present, unmasked, in the packet JSON that the browser downloads (`data/okafor_lindqvist_2025_packet.json`) and in anything typed into the event log in `localStorage`; anyone with the browser's developer tools can read both. The exported audit log is written verbatim (it is the record), so an identifier someone types into a note would appear there. EINs and preparer numbers (business identifiers) are not masked.
+
 ## Run it
 
 Requires Node 20.12+ (developed on Node 24).

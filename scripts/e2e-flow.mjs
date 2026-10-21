@@ -181,7 +181,7 @@ await journey('(h-a) the help panel opens from each of the four steps, Esc close
     const trigger = step === 1 ? h.getByRole('button', { name: 'I need help' }) : h.getByRole('button', { name: 'Need help?' });
     await trigger.click();
     await h.getByRole('dialog', { name: 'How can we help with this case?' }).waitFor({ timeout: 3000 });
-    if (!(await focusedText(h)).startsWith('How can we help')) throw new Error(`step ${step}: focus not on the panel title`);
+    await h.waitForFunction(() => document.activeElement?.textContent?.trim().startsWith('How can we help'), null, { timeout: 2000 }).catch(() => { throw new Error(`step ${step}: focus not on the panel title`); });
     if (step === 1) {
       // Tab stays inside the panel.
       for (let i = 0; i < 25; i++) await h.keyboard.press('Tab');

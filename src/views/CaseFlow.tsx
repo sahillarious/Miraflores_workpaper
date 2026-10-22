@@ -12,7 +12,7 @@ import { linkCandidates, linkCommand } from '../copilot/linkBridge';
 import { draftRationale } from '../copilot/summary';
 import { refKind } from '../domain/refs';
 import { plainSummary } from '../domain/plain';
-import { closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
+import { authorize, closeBlockers, OUTCOME_LABEL, type Command } from '../domain/workflow';
 import type { CaseDef, Outcome, Reconciliation } from '../domain/cases';
 import type { PacketIndex } from '../domain/packetIndex';
 
@@ -30,7 +30,7 @@ export function CaseFlow({ id }: { id: string }) {
 }
 
 function CaseFlowInner({ def }: { def: CaseDef }) {
-  const { ix, defs, state, actor } = useApp();
+  const { ix, defs, defsById, state, actor } = useApp();
   const route = useRoute();
   const id = def.id;
   const cs = state.cases[def.id];
@@ -45,6 +45,8 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
   const step = (Number(route.query.get('step')) || fs.defaultStep) as 1 | 2 | 3 | 4;
   const reviewing = ['reviewer', 'partner'].includes(actor.role) && cs.status === 'ready_for_approval';
   const names = STEPS.map((s, i) => (i === 3 && reviewing ? 'Review and approve' : s));
+  // The approve button lives on Step 4, so on Steps 1-3 tell the person it is waiting for them. Whether it is waiting for *them* is authorize()'s answer to the real command.
+  const waitingForMe = reviewing && step !== 4 && authorize(ix, defsById, state, actor, { type: 'case.resolve', payload: { caseId: def.id } }) === null;
   const setStep = (n: number) => go(`#/case/${def.id}?step=${n}`);
   // Direction-aware step transition; on a step change, focus the step heading and bring it into view.
   const prevStep = useRef(step);
@@ -79,6 +81,12 @@ function CaseFlowInner({ def }: { def: CaseDef }) {
       {(fs.staleSignoff || fs.staleProposal) && (
         <div className="banner warn" role="alert">
           {fs.staleSignoff ? 'This case was signed off, but the evidence it covers changed afterwards. The sign-off no longer counts; reopen and reconsider.' : 'The evidence changed after this decision was submitted. It cannot be approved as is; a reviewer must return it to the preparer.'}
+        </div>
+      )}
+
+      {waitingForMe && (
+        <div className="banner act" role="status">
+          This case is waiting for your approval. <a href={`#/case/${def.id}?step=4`}>Go to Step 4</a>
         </div>
       )}
 

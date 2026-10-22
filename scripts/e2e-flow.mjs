@@ -78,11 +78,19 @@ if (b) await journey('(c) preparer submits, a partner resolves, the checklist fo
   await see(p, 'Decision submitted for approval');
   if (!(await checklist(p, 'Decision submitted').textContent()).includes('Waiting for partner approval')) throw new Error('decision not waiting for partner');
   await as(p, 'st-02');
+  // A reviewer who cannot approve this one (it needs a partner) is not told it is waiting for them.
+  await open(p, '#/case/WP-RSU-BASIS?step=1');
+  if (await p.getByText('This case is waiting for your approval').count()) throw new Error('the reviewer was told a partner-only case is waiting for them');
   await open(p, '#/case/WP-RSU-BASIS');
   await see(p, 'Review and approve');
   await p.getByRole('button', { name: 'Approve & sign off' }).click();
   await see(p, 'needs partner sign-off');
   await as(p, 'st-03');
+  await open(p, '#/case/WP-RSU-BASIS?step=2');
+  await p.getByText('This case is waiting for your approval').waitFor({ timeout: 3000 });
+  await p.getByRole('link', { name: 'Go to Step 4' }).click();
+  await p.getByRole('button', { name: 'Approve & sign off' }).waitFor({ timeout: 3000 });
+  if (await p.getByText('This case is waiting for your approval').count()) throw new Error('the banner is still shown on Step 4');
   await open(p, '#/case/WP-RSU-BASIS');
   await shot(p, 'flow-4-review');
   await p.getByRole('button', { name: 'Approve & sign off' }).click();
@@ -510,6 +518,42 @@ await journey('(rr-a) Related returns page: three cards, documents and cases lin
   await open(q, '#/doc/D31');
   if (await q.getByText('Part of a related return').count()) throw new Error('D31 should not claim a related return');
   if (Number(process.env.WIDTH ?? 1440) < 600) { await open(q, '#/related'); if ((await q.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 1) throw new Error('horizontal scroll on the related-returns page'); }
+});
+
+// (rb) the reviewer's banner on Steps 1-3 (the approve button itself lives on Step 4).
+await journey('(rb-a) a reviewer is told, on Steps 1-3, that a case is waiting for approval, with a link to Step 4', async () => {
+  const r = await newPage();
+  const banner = r.getByText('This case is waiting for your approval');
+  await open(r, '#/case/WP-DEPENDENT-TIN?view=full');
+  await r.getByLabel('Reference to link').fill('doc:D06#page1');
+  await r.getByLabel('Why').fill('2024 return as filed shows the SSN ending 3390');
+  await r.getByRole('button', { name: 'Link', exact: true }).click();
+  await see(r, 'linked to decision');
+  await open(r, '#/case/WP-DEPENDENT-TIN?step=4');
+  await r.getByLabel('Decision outcome').selectOption({ index: 0 });
+  await r.getByLabel('Why (at least 20 characters').fill('Organizer typo; the 2024 return and the IRS letter agree on 3390.');
+  await r.getByRole('button', { name: 'Submit for approval' }).click();
+  await see(r, 'Decision submitted for approval');
+  // The preparer who submitted it is not the one it waits for.
+  for (const n of [1, 2, 3]) { await open(r, `#/case/WP-DEPENDENT-TIN?step=${n}`); if (await banner.count()) throw new Error(`the preparer sees the banner on Step ${n}`); }
+  await as(r, 'st-02');
+  for (const n of [1, 2, 3]) {
+    await open(r, `#/case/WP-DEPENDENT-TIN?step=${n}`);
+    await banner.waitFor({ timeout: 3000 });
+    if (await r.getByRole('button', { name: 'Approve & sign off' }).count()) throw new Error(`the approve button is on Step ${n}`);
+  }
+  await shot(r, 'reviewer-banner');
+  await r.getByRole('link', { name: 'Go to Step 4' }).click();
+  await r.getByRole('button', { name: 'Approve & sign off' }).waitFor({ timeout: 3000 });
+  if (await banner.count()) throw new Error('the banner is shown on Step 4');
+  // A case nobody has submitted has no banner for anyone.
+  await open(r, '#/case/WP-DUP-W2?step=1');
+  if (await banner.count()) throw new Error('banner on a case that is not waiting');
+  // The client never sees the guided flow at all.
+  await as(r, 'cu-01');
+  await open(r, '#/case/WP-DEPENDENT-TIN?step=1');
+  if (await banner.count()) throw new Error('the client sees the banner');
+  if (Number(process.env.WIDTH ?? 1440) < 600) { await as(r, 'st-02'); await open(r, '#/case/WP-DEPENDENT-TIN?step=2'); if ((await r.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 1) throw new Error('horizontal scroll with the banner'); }
 });
 
 await browser.close();

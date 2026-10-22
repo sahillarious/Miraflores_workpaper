@@ -33,6 +33,7 @@ const shot = async (page, name) => { if (OUT) await page.screenshot({ path: `${O
 const checklist = (page, label) => page.locator('.flow-side .flow-checklist li', { hasText: label });
 
 async function journey(name, fn) {
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return false; // ONLY=r-a runs a single journey
   try { await fn(); results.push(['PASS', name]); return true; } catch (e) { results.push(['FAIL', name, String(e).split('\n')[0]]); return false; }
 }
 const skip = (name) => results.push(['SKIP', name, 'depends on an earlier journey that failed']);
@@ -447,6 +448,40 @@ await journey('(p2-c) a cached verified report: three plain lines, ids only in t
   const log = await h.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('mf-workpaper:'))) ?? '[]'));
   if (log.some((e) => e.type === 'case.propose')) throw new Error('the draft was submitted automatically');
   if (calls.length) throw new Error('an investigation was requested during the cached-report journey');
+});
+
+// (r) the reviewer's approve button survives navigating away and back (bug report: it vanished after Documents).
+const spa = async (page, hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(250); };
+await journey('(r-a) Theo SSN case: submit as Priya, Daniel sees Approve & sign off, still there after Documents and back via the queue', async () => {
+  const r = await newPage();
+  await open(r, '#/case/WP-DEPENDENT-TIN?view=full');
+  await r.getByLabel('Reference to link').fill('doc:D06#page1');
+  await r.getByLabel('Why').fill('2024 return as filed shows the SSN ending 3390');
+  await r.getByRole('button', { name: 'Link', exact: true }).click();
+  await see(r, 'linked to decision');
+  await open(r, '#/case/WP-DEPENDENT-TIN?step=4');
+  await r.getByLabel('Decision outcome').selectOption({ index: 0 });
+  await r.getByLabel('Why (at least 20 characters').fill('Organizer typo; the 2024 return and the IRS letter agree on 3390.');
+  await r.getByRole('button', { name: 'Submit for approval' }).click();
+  await see(r, 'Decision submitted for approval');
+  await as(r, 'st-02');
+  const approve = r.getByRole('button', { name: 'Approve & sign off' });
+  await approve.waitFor({ timeout: 3000 });
+  await spa(r, '#/docs');
+  await r.waitForTimeout(300);
+  await spa(r, '#/queue');
+  await r.locator('a.issue-title', { hasText: 'differs from the 2024 return' }).first().click();
+  await r.waitForTimeout(300);
+  const diag = await r.evaluate(() => ({ hash: location.hash, status: document.querySelector('.flow-head .pill')?.textContent, buttons: [...document.querySelectorAll('main button')].map((b) => b.textContent.trim()).slice(0, 12) }));
+  if (!(await approve.isVisible())) throw new Error(`Approve & sign off is missing after navigating back: ${JSON.stringify(diag)}`);
+  await shot(r, 'r-a');
+  // Same state in the full-details view.
+  await open(r, '#/case/WP-DEPENDENT-TIN?view=full');
+  await r.getByRole('button', { name: /Approve & sign off/ }).first().waitFor({ timeout: 3000 });
+  // A reload keeps the role and the button.
+  await r.reload(); await r.waitForTimeout(300);
+  await open(r, '#/case/WP-DEPENDENT-TIN');
+  await approve.waitFor({ timeout: 3000 });
 });
 
 await browser.close();

@@ -12,6 +12,7 @@ import { LineTrace } from './views/LineTrace';
 import { Activity } from './views/Activity';
 import { Readiness, Checks } from './views/Readiness';
 import { ClientRecords } from './views/Client';
+import { RelatedReturns } from './views/RelatedReturns';
 import { ClientPortal } from './views/ClientPortal';
 import { PriorRecords, Assets } from './views/Prior';
 
@@ -24,6 +25,7 @@ const NAV = [
   { href: '#/readiness', label: 'Readiness', match: 'readiness' },
   { href: '#/activity', label: 'Activity', match: 'activity' },
   { href: '#/client', label: 'Client records', match: 'client' },
+  { href: '#/related', label: 'Related returns', match: 'related' },
   { href: '#/assets', label: 'Assets', match: 'assets' },
   { href: '#/prior', label: 'Prior year & agency', match: 'prior' },
 ];
@@ -51,6 +53,7 @@ export function App() {
       case 'readiness': view = <Readiness ready={ready} />; break;
       case 'checks': view = <Checks />; break;
       case 'client': view = <ClientRecords />; break;
+      case 'related': view = <RelatedReturns />; break;
       case 'prior': view = <PriorRecords />; break;
       case 'assets': view = <Assets />; break;
       default: view = <div className="page"><h1>Not found</h1><p><a href="#/">Back to overview</a></p></div>;

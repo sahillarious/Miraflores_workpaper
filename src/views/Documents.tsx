@@ -4,6 +4,7 @@ import { useRoute, go } from '../ui/router';
 import { DocPage } from '../ui/DocPage';
 import { Person, Prio, Section, fmtDate, fmtDay } from '../ui/components';
 import { fmtValue } from '../domain/refs';
+import { relatedReturnOf } from '../ui/relatedReturns';
 import { unreadPages, type PacketIndex } from '../domain/packetIndex';
 import { DISPOSITION_LABEL, type Disposition } from '../domain/workflow';
 import type { ExtractedValue } from '../domain/types';
@@ -129,7 +130,7 @@ function useCaseDocMap() {
 }
 
 export function DocumentView({ id }: { id: string }) {
-  const { ix, state, run, defsById, mask } = useApp();
+  const { ix, state, run, defs, defsById, mask } = useApp();
   const route = useRoute();
   const doc = ix.docs.get(id);
   const focusEv = route.query.get('ev') ?? undefined;
@@ -140,6 +141,7 @@ export function DocumentView({ id }: { id: string }) {
   if (!doc) return <div className="page"><h1>Document not found</h1></div>;
   const curPage = ev0?.page ?? Number(route.query.get('page') ?? 1);
   const L = landing(ix, id);
+  const rr = relatedReturnOf(ix, defs, id);
   const ds = state.docs[id];
   const pageEvs = (ix.evsByDoc.get(id) ?? []);
   const unread = unreadPages(ix, id);
@@ -154,6 +156,7 @@ export function DocumentView({ id }: { id: string }) {
         <div>
           <h1>{doc.title}</h1>
           <p className="muted">{doc.document_type} · issuer {doc.issuer} · belongs to {doc.belongs_to} · tax year {doc.tax_year} · received {fmtDate(doc.received_at)} (uploaded by {doc.uploaded_by}) · {doc.file_name}</p>
+          {rr && <p className="small">Part of a related return: <a href={`#/related?focus=${rr.key}`}>{rr.who}</a>, prepared by {rr.preparedBy}.</p>}
         </div>
       </div>
       <div className="doc-layout">

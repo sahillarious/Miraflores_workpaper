@@ -484,6 +484,34 @@ await journey('(r-a) Theo SSN case: submit as Priya, Daniel sees Approve & sign 
   await approve.waitFor({ timeout: 3000 });
 });
 
+// (rr) related returns: the packet's three related returns, what we hold of each, and links in both directions.
+await journey('(rr-a) Related returns page: three cards, documents and cases linked, reachable from Client records and from a K-1', async () => {
+  const q = await newPage();
+  await open(q, '#/client');
+  await q.getByRole('link', { name: /See what each one touches/ }).click();
+  await q.getByRole('heading', { name: 'Related returns' }).waitFor({ timeout: 5000 });
+  const titles = await q.locator('.related-grid h3').allInnerTexts();
+  const cards = await q.locator('.related-card').count();
+  if (cards !== 3) throw new Error(`expected 3 related-return cards, found ${cards} (${titles.join(' | ')})`);
+  const rid = q.locator('.related-grid section', { hasText: 'Ridgeline' });
+  for (const d of ['D37', 'D38']) if (!(await rid.getByText(d, { exact: true }).count())) throw new Error(`Ridgeline card is missing ${d}`);
+  const wood = q.locator('.related-grid section', { hasText: 'Woodworks' });
+  for (const d of ['D39', 'D40']) if (!(await wood.getByText(d, { exact: true }).count())) throw new Error(`Woodworks card is missing ${d}`);
+  const ada = q.locator('.related-grid section', { hasText: 'Ada' });
+  if (!(await ada.getByText('nothing. We only know it exists.').count())) throw new Error('Ada card should say nothing is held');
+  if (!(await ada.locator('a[href^="#/case/"]').count())) throw new Error('Ada card lists no case');
+  await shot(q, 'related-returns');
+  // From a K-1 document back to its return.
+  await open(q, '#/doc/D39');
+  await q.getByRole('link', { name: /Lindqvist Family Woodworks/ }).first().click();
+  await q.getByRole('heading', { name: 'Related returns' }).waitFor({ timeout: 5000 });
+  if (!(await q.locator('.related-grid section', { hasText: 'Woodworks' }).locator('.related-card.focus').count())) throw new Error('the K-1\'s return was not highlighted');
+  // A document that is in no related return has no such line.
+  await open(q, '#/doc/D31');
+  if (await q.getByText('Part of a related return').count()) throw new Error('D31 should not claim a related return');
+  if (Number(process.env.WIDTH ?? 1440) < 600) { await open(q, '#/related'); if ((await q.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 1) throw new Error('horizontal scroll on the related-returns page'); }
+});
+
 await browser.close();
 for (const r of results) console.log(r.join(' | '));
 console.log(errors.length ? `CONSOLE ERRORS (${errors.length}):\n${errors.slice(0, 10).join('\n')}` : 'No console errors');

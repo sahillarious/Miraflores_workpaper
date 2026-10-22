@@ -466,3 +466,7 @@ details.sub { margin-left: 14px; }
 .ai-link h4 { margin-top: 0; }
 .ai-link-list li { padding: 6px 0; border-bottom: 1px solid var(--line-2); }
 .tag-doc { color: var(--pos); border-color: var(--pos-soft); background: var(--pos-soft); }
+
+/* Related returns */
+.related-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.related-card.focus { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 6px; }

@@ -20,7 +20,7 @@ export function ClientRecords() {
           ))}</tbody>
         </table>
         <p className="small">Residency: {hh.residency.map((r: any) => `${r.state} ${r.from} to ${r.to}`).join('; ')} · Refund account <Sensitive value={hh.bank_account_for_refund_or_payment.account} what="household:bank_account" /> ({hh.bank_account_for_refund_or_payment.bank})</p>
-        <p className="small">Related returns: {hh.related_returns.map((r: any) => `${r.who} — ${r.return}`).join(' · ')}</p>
+        <p className="small">Related returns: {hh.related_returns.map((r: any) => r.who).join(' · ')}. <a href="#/related">See what each one touches →</a></p>
       </Section>
       <div className="grid-2">
         <Section title={`Questionnaire (${ix.packet.client.questionnaire.length})`}>

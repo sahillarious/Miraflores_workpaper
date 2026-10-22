@@ -1,0 +1,24 @@
+# Render Blueprint for the Miraflores workpaper: one Node web service built from the repo root.
+# No secret value belongs in this file: the two secrets are entered in the Render dashboard
+# (sync: false means "ask me, do not store it in the repo").
+services:
+  - type: web
+    name: miraflores-workpaper
+    runtime: node
+    plan: free # free services sleep when idle and restart; the in-memory limits and daily cap reset on restart
+    branch: main
+    # --include=dev: the build needs vite and typescript even when NODE_ENV=production.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: COPILOT_TRUST_PROXY # one reverse proxy (Render) sits in front: trust only the entry it adds
+        value: "1"
+      - key: COPILOT_DAILY_CAP # investigations per UTC day; about $0.09 each, so 60 is about $5.40
+        value: "60"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: COPILOT_ACCESS_CODE
+        sync: false

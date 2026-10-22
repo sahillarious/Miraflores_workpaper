@@ -85,7 +85,28 @@ npx tsx eval/rescore.ts eval/results/<file>.json   # re-verify saved runs with t
 
 ## Deploy
 
-**Not deployed.** `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser. The packet data is invented, but it should not be put on a public URL as-is: public hosting needs a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key and an access code (see "AI copilot: access code, limits and cache"). Deployment configuration is not done yet.
+**Not deployed.** `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser. The packet data is invented, but it should not be put on a public URL as-is: public hosting needs a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key and an access code (see "AI copilot: access code, limits and cache"). For Render, see "Deploy to Render" below.
+
+## Deploy to Render
+
+The app is one Node web service: `npm start` serves the built app, the packet and the copilot API on `PORT`, listening on all interfaces. [render.yaml](render.yaml) holds these settings; entering them by hand works the same.
+
+1. Push the repo to GitHub, then in Render choose **New → Blueprint** and pick the repo (or **New → Web Service** and enter the values below).
+2. **Runtime** Node · **Build command** `npm ci --include=dev && npm run build` · **Start command** `npm start` · **Health check path** `/healthz`.
+3. **Environment** (names only; values are entered in the dashboard, never in a file):
+   - `ANTHROPIC_API_KEY` — secret. Without it the copilot is off.
+   - `COPILOT_ACCESS_CODE` — secret. A passphrase you share with people who may use the AI. Without it the copilot is off.
+   - `COPILOT_TRUST_PROXY` = `1` — Render is one proxy in front of the app.
+   - `COPILOT_DAILY_CAP` = `60` — optional, investigations per UTC day.
+   - `NODE_VERSION` = `22` — optional; Node 20.12 or newer is required.
+4. Deploy. The free plan sleeps when idle, so the first request after a pause is slow, and the rate limits and the daily cap are in memory and **reset when the service restarts**. Set a spend limit on the Anthropic key as the real backstop.
+
+Post-deploy checklist:
+- `/healthz` shows `ok`; the home page loads and Overview shows the figures.
+- `/api/copilot/status` says `"configured": true` (or tells you which variable is missing).
+- A case's step 1 asks for the access code; a wrong code is refused with a friendly message; the right one produces a summary (about 9 cents, once per case, then cached in the browser).
+- `/robots.txt` disallows everything and the page carries a noindex tag.
+- The packet is public. It is served to anyone who opens the site (`/data/okafor_lindqvist_2025_packet.json`), identifiers included, although the data is invented. Masking in the screens is display-only.
 
 ## Saving
 

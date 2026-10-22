@@ -19,6 +19,8 @@ const raw = (path: string) => new Promise<{ status: number; body: string; type: 
   r.on('error', reject); r.end();
 });
 
+const header = (path: string, name: string) => new Promise<string>((resolve, reject) => { const r = request({ host: '127.0.0.1', port, path }, (res) => { res.resume(); res.on('end', () => resolve(String(res.headers[name] ?? ''))); }); r.on('error', reject); r.end(); });
+
 beforeAll(async () => {
   tmp = mkdtempSync(join(tmpdir(), 'mf-static-'));
   mkdirSync(join(tmp, 'dist')); mkdirSync(join(tmp, 'dist-old'));
@@ -50,6 +52,15 @@ describe('static server', () => {
       const r = await raw(p);
       expect(r.body, p).not.toContain('SECRET');
     }
+  });
+  it('answers /healthz with 200 without touching the API or the files', async () => {
+    const before = apiCalls.length;
+    const r = await raw('/healthz');
+    expect(r).toMatchObject({ status: 200, body: 'ok' });
+    expect(apiCalls.length).toBe(before);
+  });
+  it('asks search engines not to index anything it serves', async () => {
+    for (const p of ['/', '/healthz', '/robots.txt']) expect(await header(p, 'x-robots-tag'), p).toBe('noindex, nofollow');
   });
   it('hands /api/ requests to the API', async () => {
     expect((await raw('/api/copilot/status')).body).toBe('api');

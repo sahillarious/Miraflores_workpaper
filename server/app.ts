@@ -12,6 +12,10 @@ export function createApp(opts: { dist: string; api: (req: IncomingMessage, res:
   const dist = normalize(opts.dist);
   return function handle(req: IncomingMessage, res: ServerResponse) {
     try {
+      // A demo with invented data: keep it out of search indexes.
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      // Health check for the host: no model, no access code, no files.
+      if ((req.url ?? '').split('?')[0] === '/healthz') { res.statusCode = 200; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); return void res.end('ok'); }
       if ((req.url ?? '').startsWith('/api/')) return void opts.api(req, res);
       const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
       let file = normalize(join(dist, path === '/' ? 'index.html' : path));

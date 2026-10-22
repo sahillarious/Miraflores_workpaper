@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ix } from './load';
 import { buildCases } from '../src/domain/cases';
 import { MemoryRepository, Workpaper } from '../src/domain/store';
-import { buildActors, type Actor } from '../src/domain/workflow';
+import { buildActors, readiness, type Actor } from '../src/domain/workflow';
+import { NOT_TRACKED } from '../src/ui/notTracked';
 import { explainSuggestion, existingAdjustment, flowState } from '../src/ui/flowState';
 
 const defs = buildCases(ix);
@@ -129,5 +130,23 @@ describe('no-estimate sentence', () => {
     const { noEstimateSentence } = await import('../src/ui/flowState');
     expect(noEstimateSentence(byId.get('WP-DEPENDENT-TIN')!)).toBe('No dollar estimate. This blocks e-file until it is resolved.');
     for (const d of defs.filter((x) => !x.effect)) expect(noEstimateSentence(d), d.id).not.toMatch(/no (tax )?change/i);
+  });
+});
+
+describe('readiness steps that the demo does not really track', () => {
+  it('names only real steps, and the steps the domain marks done or never done without looking at the workpaper', () => {
+    const steps = readiness(ix, defs, fresh().state, 4).steps;
+    const ids = steps.map((s) => s.id);
+    for (const id of Object.keys(NOT_TRACKED)) expect(ids).toContain(id);
+    // The derived steps follow the workpaper: they start not done.
+    for (const id of ['docs', 'identity', 'py-return', 'variance', 'payments', 'dd', 'diag', 'checks', 'reviewer', 'partner']) {
+      expect(Object.keys(NOT_TRACKED)).not.toContain(id);
+      expect(steps.find((s) => s.id === id)!.done).toBe(false);
+    }
+    // The untracked ones do not depend on the workpaper (a fresh log and a worked one agree).
+    const wp = fresh();
+    ok(wp.dispatch(priya, [{ type: 'case.note', payload: { caseId: 'WP-RSU-BASIS', text: 'a note', blocking: false } }]));
+    const after = readiness(ix, defs, wp.state, 4).steps;
+    for (const id of Object.keys(NOT_TRACKED)) expect(after.find((s) => s.id === id)!.done).toBe(steps.find((s) => s.id === id)!.done);
   });
 });

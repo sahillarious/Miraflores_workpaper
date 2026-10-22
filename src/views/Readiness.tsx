@@ -1,6 +1,7 @@
 import { useApp } from '../ui/context';
 import { Person, Refs, Section, fmtDate, money } from '../ui/components';
 import { READINESS_LABEL, type ReadinessLevel, type Step } from '../domain/workflow';
+import { NOT_TRACKED } from '../ui/notTracked';
 
 export function Readiness({ ready }: { ready: { level: ReadinessLevel; steps: Step[]; blockers: string[] } }) {
   const { state, run, defs } = useApp();
@@ -8,18 +9,26 @@ export function Readiness({ ready }: { ready: { level: ReadinessLevel; steps: St
   const outOfScope = defs.filter((d) => d.classification === 'out_of_scope');
   return (
     <div className="page">
-      <div className="page-h"><div><h1>Readiness</h1><p className="muted">Computed from case states, document dispositions and sign-offs. The firm's required steps come from the packet's starter standards.</p></div></div>
+      <div className="page-h"><div><h1>Readiness</h1><p className="muted">Computed from case states, document dispositions and sign-offs. The exception is the steps marked “Not tracked in this demo”.</p></div></div>
       <div className={`ready-banner big r-${ready.level}`}><strong>{READINESS_LABEL[ready.level]}</strong>{ready.blockers.length > 0 && <span> — {ready.blockers.join(' · ')}</span>}</div>
       <div className="grid-2">
         <Section title="Required steps">
           <ol className="steps">
-            {ready.steps.map((s) => (
-              <li key={s.id} className={s.done ? 'done' : 'todo'}>
-                <span className="tick" aria-hidden>{s.done ? '✓' : '○'}</span>
-                <div><strong>{s.route ? <a href={s.route}>{s.label}</a> : s.label}</strong><div className="small muted">{s.detail}</div></div>
-              </li>
-            ))}
+            {ready.steps.map((s) => {
+              const untracked = s.id in NOT_TRACKED;
+              return (
+                <li key={s.id} className={untracked ? 'untracked' : s.done ? 'done' : 'todo'}>
+                  <span className="tick" aria-hidden>{untracked ? '–' : s.done ? '✓' : '○'}</span>
+                  <div>
+                    <strong>{s.route ? <a href={s.route}>{s.label}</a> : s.label}</strong>
+                    {untracked && <span className="tag untracked-tag">Not tracked in this demo</span>}
+                    <div className="small muted">{untracked ? NOT_TRACKED[s.id] : s.detail}</div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
+          <p className="small muted">Steps marked “Not tracked in this demo” are shown for completeness. The app does not check them and they never block readiness.</p>
         </Section>
         <div className="stack">
           <Section title="Engagement sign-off">

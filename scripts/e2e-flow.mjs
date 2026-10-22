@@ -556,6 +556,27 @@ await journey('(rb-a) a reviewer is told, on Steps 1-3, that a case is waiting f
   if (Number(process.env.WIDTH ?? 1440) < 600) { await as(r, 'st-02'); await open(r, '#/case/WP-DEPENDENT-TIN?step=2'); if ((await r.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 1) throw new Error('horizontal scroll with the banner'); }
 });
 
+// (rd) readiness: the steps the app does not really derive say so instead of looking checked.
+await journey('(rd-a) Readiness marks engagement, carryovers and client approval "Not tracked in this demo"; derived steps stay checkable', async () => {
+  const d = await newPage();
+  await open(d, '#/readiness');
+  await d.getByRole('heading', { name: 'Readiness' }).first().waitFor({ timeout: 5000 });
+  const tags = d.locator('.steps li.untracked');
+  if ((await tags.count()) !== 3) throw new Error(`expected 3 untracked steps, found ${await tags.count()}`);
+  for (const label of ['Engagement letter and consents signed', 'Carryovers agreed to prior year', 'Client approval and e-file authorization']) {
+    const li = d.locator('.steps li.untracked', { hasText: label });
+    if (!(await li.count())) throw new Error(`"${label}" is not marked untracked`);
+    if (!(await li.getByText('Not tracked in this demo').count())) throw new Error(`"${label}" has no tag`);
+    if ((await li.locator('.tick').innerText()).includes('✓')) throw new Error(`"${label}" shows a tick`);
+  }
+  const derived = d.locator('.steps li:not(.untracked)');
+  if ((await derived.count()) !== 10) throw new Error(`expected 10 derived steps, found ${await derived.count()}`);
+  if (await derived.getByText('Not tracked in this demo').count()) throw new Error('a derived step is marked untracked');
+  if ((await d.locator('.steps li.done').count()) > 0) throw new Error('a step shows done on a fresh workpaper');
+  await shot(d, 'readiness-untracked');
+  if (Number(process.env.WIDTH ?? 1440) < 600 && (await d.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 1) throw new Error('horizontal scroll on Readiness');
+});
+
 await browser.close();
 for (const r of results) console.log(r.join(' | '));
 console.log(errors.length ? `CONSOLE ERRORS (${errors.length}):\n${errors.slice(0, 10).join('\n')}` : 'No console errors');

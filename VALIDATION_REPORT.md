@@ -1,5 +1,31 @@
 # Validation report
 
+## Update 2026-10-23: redesign, hardening and deployment
+
+Everything below was run in the session that produced it; the numbers are copied from the command output. No model was called in any of these runs (the copilot ran against a fake key, a throwaway access code, or mocked responses).
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npx vitest run` | 6 files, **101 / 101** (domain rules, guided flow, readiness, masking, copilot, API security and cache, static server) |
+| `npm run build` and `npm run check:secrets` | pass; 5 build files, no source maps. The real key and access code appear in no tracked file and in no commit of the git history |
+| `node scripts/e2e.mjs` on `vite preview`, copilot off and configured | **24 / 24** each, no console errors |
+| `node scripts/e2e-flow.mjs` on preview, 1440 px and 390 px, copilot off and configured | **22 / 22** each (four runs), no console errors |
+| The same suites against the deployed site (https://miraflores-workpaper-up2n.onrender.com) | **24 / 24**, **22 / 22** (1440 px), **22 / 22** (390 px), no console errors |
+| Link crawl of the production build (every internal link, up to 1,500 pages per run) as preparer, reviewer, administrator and client (1440 px), and as preparer at 390 px | no dead links, no "not found" pages, no console errors. Sideways scrolling at 390 px on step 2 and full details of three cases and on one Prior-year page, and at 1440 px on two long line pages. **Not fixed.** |
+| Clean clone: `npm ci --include=dev`, `npm run build`, `npm prune --omit=dev`, `npm start` with a fake key and a throwaway code | works. `GET /` 200; `/healthz` 200; the served packet's SHA-256 is `ee01f8508bd2fd9854754b82fd9c4a055bdc55e2778a132002a25381c412ad19` (identical to the original); a copilot POST with no code or a wrong code gets 401; the right code with an unknown case id gets 400 without any provider call; neither the responses nor the server log contained the code or the key |
+| Degraded modes (same clone) | static host with no API: the workpaper works (e2e 23 / 24; the one failing check expects the server-off wording "AI copilot is off", while a static host shows "Copilot server not reachable", plus one 404 line in the browser console from the status probe). Server with no access code: copilot off with the reason, 24 / 24. Code set but no API key: safe 503, 24 / 24 |
+
+**A defect found and fixed during this verification:** one malformed request (`GET /%`) crashed the whole production server (reproduced; the next request got connection refused). The static handler now answers 400, and `tests/server.test.ts` covers it. `npm start` also listened only on 127.0.0.1, which Render cannot reach; it now listens on all interfaces.
+
+**The author's own checks (manual), recorded as observed:**
+- **Two browsers do not share work.** A note added in one browser did not appear in a private window. Each browser keeps its own history.
+- **The unread-changes indicator did not appear.** After switching to a different role and reloading, neither the unread count on Activity nor the marker on the case showed. By reading the code, it needs a per-role baseline (Activity → "Mark all seen") and counts only other roles' changes in the same browser; a scripted run on the deployed site on 2026-10-23 showed it only after that baseline was set. It is not claimed as a feature.
+- **The AI summary appeared once on the deployed site** with the access code. That is the whole extent of testing the copilot in the deployed environment.
+- **Behaviours seen:** a reviewer sees the Approve button on a case that needs a partner and the app refuses it ("needs partner approval"); the top bar changes from "Blocked" to "In progress" after the dependent SSN case is resolved.
+
+**Not verified:** Render's proxy headers and free-plan sleep behaviour (the limiter's client address assumes one proxy), a screen-reader or keyboard audit, behaviour in Safari or Firefox (only Chrome was driven), and the live AI on the deployed site beyond the single run above. The 15 / 18 copilot figure below is still a re-score, not a fresh run.
+
 ## Update 2026-10-21: copilot endpoint security, cache and AI helpers (Phase 2)
 
 Unit tests use the scripted provider double only (no model calls). The one live check is recorded below.
@@ -136,7 +162,7 @@ Overview figures → queue → search `ev-0703` → Meridian amounts → note pe
 
 ## Manual checks
 
-- Screenshots of every view at 1500 px and 390 px reviewed for layout, overflow and readability.
+- Screenshots of every view at 1500 px and 390 px reviewed for layout, overflow and readability. (Done before the October 2026 redesign and not repeated by hand; the link crawl above replaced it for overflow and errors.)
 - Overview figures checked against `return_versions[2].summary`; the California −8,256 is labelled "Overpayment (refund)" with the packet value shown.
 
 ## Known limitations

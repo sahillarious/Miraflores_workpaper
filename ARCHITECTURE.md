@@ -14,10 +14,13 @@ domain/effects.ts       tax-effect estimates from tax_effect_rates (engine canno
 domain/workflow.ts      events, projection, state machine, authorization, close rules, readiness
 domain/store.ts         Workpaper (dispatch/undo/export) over a Repository (localStorage | memory)
         │
-ui/ (context, router, components, DocPage)  →  views/ (Overview, Queue, CaseView, Documents, Versions, LineTrace, …)
+ui/ (context, router, components, DocPage, flowState, relatedReturns)  →  views/ (Overview, Queue, CaseFlow (guided, the default), CaseView (full details), HelpPanel, Documents, Versions, LineTrace, RelatedReturns, …)
+
+server/api.ts      copilot API (access code, limits, cache key)      server/app.ts   static file handler, /healthz, noindex
+server/index.ts    production entry: serves dist/ and the API on PORT, all interfaces
 ```
 
-Everything under `domain/` is plain TypeScript with no React, which is why the 26 tests run on the real packet in Node.
+Everything under `domain/` is plain TypeScript with no React, which is why the 101 unit tests run on the real packet in Node (plus 24 + 22 browser journeys).
 
 ## Data model
 
@@ -35,7 +38,13 @@ Everything under `domain/` is plain TypeScript with no React, which is why the 2
 - **Closing a case:** an allowed outcome and a rationale of 20 or more characters, plus none of the following outstanding: unanswered questions, review notes not cleared, pending adjustments. "Substantiated" (and "corrected" without an approved adjustment) needs linked documentary evidence; a client message does not count. "Out of scope – referred" needs a recorded communication.
 - **Firm rules from the packet:** nobody approves or signs off their own work. An adjustment with a tax effect over 1,000 needs a partner. Review notes are raised and cleared by a reviewer or partner. Staff without clearance cannot unmask SSNs, IP PINs or bank accounts, and every unmask is logged.
 - **Stale sign-offs:** a sign-off stores a fingerprint of the case's links, adjustments, answers, reconciliation conclusions and the dispositions of the documents it cites. When the fingerprint changes after resolution, the sign-off shows as stale and readiness is blocked.
-- **Readiness:** the firm's `required_steps`, computed from state. Levels: blocked → in progress → ready for reviewer → ready for partner → ready to present for client approval. Client approval and filing are never claimed.
+- **Readiness:** a list of steps in `readiness()` plus blockers computed from state. Most steps are derived from case status, document dispositions and sign-offs. Three are **not derived** (engagement letter signed and carryovers agreed are fixed values; client approval and e-file can never be done here), so the UI shows them as "Not tracked in this demo" and they never block (`ui/notTracked.ts`). Levels: blocked → in progress → ready for reviewer → ready for partner → ready to present for client approval. The level is **blocked** while a blocker-severity case is open and not yet submitted for approval, so the top bar goes from "Blocked" to "In progress" once the dependent SSN case is submitted or resolved. Client approval and filing are never claimed.
+
+## Guided flow and related returns (UI over the same workflow)
+
+`views/CaseFlow.tsx` is the default page for a case: four steps (What's wrong, Check the proof, Fix it, Send; Review and approve for a pending reviewer). It adds no rule and no event. `ui/flowState.ts` derives the checklist and the starting step from the same projected state (`caseFacts()`, the proposal fingerprint) the full view uses, and every button dispatches the same commands through `authorize()`. Whether a help-panel card or the "waiting for your approval" banner is offered is decided by calling `authorize()` with a probe of the real command, so no permission rule is duplicated in the UI. A reviewer can still open a case that needs a partner and press Approve; `authorize()` refuses it with a "needs partner approval" message, and the banner is not shown for that person. Notes, which the guided steps do not have, are in the full view ("Show full details").
+
+`views/RelatedReturns.tsx` shows the packet's `household.related_returns` with the K-1 documents they hold, the return lines those documents feed (the existing `landing()` reverse index) and the cases that cite them. Nothing is stored.
 
 ## Source rendering
 
@@ -43,17 +52,19 @@ Everything under `domain/` is plain TypeScript with no React, which is why the 2
 
 ## Persistence and multi-user
 
-The demo is a static site, so the log is saved to `localStorage` through `LocalStorageRepository`. It survives refresh, and Export/Import moves it between machines. `Repository` has three methods (`load`, `save`, `clear`). A server version (a `POST /events` append with optimistic `seq` and a `GET /events?since=`) would give shared, concurrent state. Because the log is append-only with sequence numbers, merging concurrent edits is a matter of ordering, not a schema change.
+The workpaper runs entirely in the browser (the server only serves files and the copilot API), so the log is saved to `localStorage` through `LocalStorageRepository`. It survives refresh, and Export/Import moves it between machines. `Repository` has three methods (`load`, `save`, `clear`). A server version (a `POST /events` append with optimistic `seq` and a `GET /events?since=`) would give shared, concurrent state. Because the log is append-only with sequence numbers, merging concurrent edits is a matter of ordering, not a schema change.
 
-**Limitation (stated plainly):** with the static deployment, each browser has its own log. The role switcher simulates people; it is not authentication. Authorization runs in the client-side command layer, which is the same function a server would call.
+**Limitation (stated plainly):** each browser has its own log. The author tested this: a note added in one browser did not appear in a private window. There is no live sharing. The role switcher simulates people; it is not authentication. Authorization runs in the client-side command layer, which is the same function a server would call, but today it runs in the browser, so roles are not enforced against someone with developer tools.
+
+**Unread changes.** `lastSeen` (per role, per browser, in `localStorage`) drives an unread count on Activity and a marker on cases. It starts empty and is set only when a person presses Activity → "Mark all seen", so before that nothing shows, and it counts only changes made by other roles in the same browser. It did not appear in the author's test (switching role and reloading without pressing the button). It is not claimed as a feature; the Activity log itself lists every action.
 
 ## Tradeoffs
 
-- **Static SPA instead of a backend.** It loads from a link with no infrastructure and no secrets, but there is no shared state across people (see above).
+- **Browser app plus a small server, not a backend with a database.** The workpaper is a static single-page app that loads from a link. A small Node server was added only because the AI key must stay server-side, and it also serves the files on Render. There is still no shared state across people (see above).
 - **Rules over AI.** Every finding is reproducible and testable. The cost is that some rules are packet-specific (the 1099-K-in-books and call-note percentage rules read specific fields); each cites its sources and states its rule id.
 - **Estimates from rates, not recomputation.** The packet forbids rerunning the engine. Effects are labelled estimates, and the one case with an engine what-if (HVAC) uses the engine's number.
 - **Hash routing.** Every case, document value and line has a shareable URL on any static host.
-- **No component library.** About 18 KB of CSS gives a dense, consistent workbench look with light and dark themes, without the weight of a framework.
+- **No component library.** A single hand-written stylesheet gives a consistent light-only look (the earlier dark theme was removed in the redesign) without the weight of a framework.
 
 ## Investigation copilot (runtime AI)
 
@@ -138,3 +149,7 @@ The report schema (`src/copilot/schema.ts`) has:
 - **Safe errors.** Provider error text never leaves the server: run errors and failed-model trace steps are replaced with fixed messages per error kind. Logs carry run metadata only.
 - **Plain view of a report.** Step 1 shows three lines derived from the verified report (`src/copilot/summary.ts`, no second model call) with record ids, rule ids and line keys removed; the full report with ids is behind "Show full analysis". The rationale draft (step 4) and "Link these records as evidence" (step 2, `src/copilot/linkBridge.ts`) use only verified reports, and links are created only when a person clicks, through the normal `case.link` command.
 - The loop is a manual tool-calling loop, not a framework. A single bounded investigation needs no graph, multi-agent or resumable state, and the manual loop keeps the step budget, trace and test double explicit.
+
+## Deployment
+
+One Node web service on Render (`render.yaml`): build `npm ci --include=dev && npm run build`, start `npm start`, health check `/healthz` (answers 200 without touching the model or the access code). `tsx` is a runtime dependency, because the server is run through it rather than compiled. `COPILOT_TRUST_PROXY=1` makes the limiter use the right-most `X-Forwarded-For` entry (the one the single proxy adds). The packet is served to anyone who opens the site, and the limiter, daily cap and cache reset when the service restarts.

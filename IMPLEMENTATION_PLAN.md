@@ -12,7 +12,7 @@
 |---|---|
 | Vite + React + TypeScript static SPA | The brief needs the app to run from a link. A static site has no infrastructure and loads the packet as delivered. |
 | Pure `domain/` layer, tested in Node | Rules and workflow are testable on the real packet without a browser. |
-| Append-only event log + projection | One mechanism for history, undo, "since I last looked", stale sign-offs and the audit trail. No event-sourcing framework needed. |
+| Append-only event log + projection | One mechanism for history, undo, stale sign-offs and the audit trail. No event-sourcing framework needed. |
 | localStorage behind a `Repository` interface | The smallest reliable persistence for a static deployment; replaceable by a server store. |
 | Deterministic checks, no LLM at runtime | Reproducible findings; nothing confident and unverified enters the workpaper. |
 | Hash routing | Deep links to cases, values and lines on any static host. |

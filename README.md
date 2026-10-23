@@ -4,22 +4,33 @@ A web-native tax workpaper for one complex household's return. Reviewers work fr
 
 > All data is invented (see the packet README). This is a review and evidence tool, not a tax engine. Return figures are the engine's snapshots; estimates of tax effects use the packet's `tax_effect_rates` and are labelled as estimates.
 
-- **Core idea, data model and errors found:** [PRODUCT_WRITEUP.md](PRODUCT_WRITEUP.md)
+- **Core idea, data model and what is not built:** [PRODUCT_WRITEUP.md](PRODUCT_WRITEUP.md) · **The 18 errors found:** [ERRORS_FOUND.md](ERRORS_FOUND.md)
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · **Validation:** [VALIDATION_REPORT.md](VALIDATION_REPORT.md) · **Demo path:** [DEMO_SCRIPT.md](DEMO_SCRIPT.md) · **Plan and status:** [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+
+## Live demo
+
+**https://miraflores-workpaper-up2n.onrender.com**
+
+- The service runs on a free plan, so the **first load after a pause can take about a minute**. Reload if the page is slow to appear.
+- The workpaper needs nothing else. The optional AI features need an **access code**, which the author shares separately. Without it, everything else works and the AI says it is off.
+- Your work is saved in your own browser only. It is not shared with anyone else and is not sent to a server. "Activity > Reset demo" starts over.
 
 ## What works
 
-- **Overview:** v3 federal and California figures with deltas (balance due vs refund labelled correctly), readiness, P1 issues, your assignments, deadlines.
+- **Overview:** a "Your next case" card for the current role, the v3 federal and California figures with deltas against 2024 (balance due vs refund labelled correctly), the readiness level and its blockers, the packet's deadlines, and the latest activity.
 - **Review queue:** 34 cases from 13 engine diagnostics and 21 workpaper checks. Filter by status, priority, area, origin, jurisdiction and owner; search by text, code, `D##`, `ev-####` or line; sort by priority, tax effect, recency or status; bulk assign or move with undo.
-- **Investigation workspace (three panes):** source evidence on a simulated page with the field highlighted, the reconciliation inspector (A vs B, difference only when comparable, expected relationship, what the evidence shows, recorded conclusion), and decision and workflow (status, owner, adjustments with tax effect, questions to the client or colleagues, review notes that block filing, decision → approval, reopen, history with undo).
+- **Guided case flow (the default page for a case):** four steps, **What's wrong → Check the proof → Fix it → Send** (for a reviewer or partner whose approval is pending, step 4 is **Review and approve**). A checklist beside the steps shows what is done, waiting or stale, and "Need help?" opens a panel that offers only the actions the current role may take. It is a view over the same workflow and rules as the full view.
+- **Full details ("Show full details" on any case):** the original three-pane workspace: source evidence on a simulated page with the field highlighted, the reconciliation inspector (A vs B, difference only when comparable, expected relationship, what the evidence shows, recorded conclusion), and decision and workflow (status, owner, adjustments with tax effect, questions, **notes** (the guided steps have no notes box), review notes that block filing, decision → approval, reopen, history with undo).
 - **Documents:** each document's disposition (bulk, with undo), where each extracted value landed or why it didn't, unread pages, low-confidence values, and the cases that cite it.
 - **Return and versions:** v1/v2/v3 compared with 2024, change log by form, documents added or superseded, diagnostics raised or cleared, engine what-ifs, and an explorer for all 627 lines (Form 8949's 295 lots grouped by box).
 - **Line trace:** for any line, its rule, input tree, sources, value per version and in 2024, the lines that use it, related cases and overlay adjustments.
 - **Independent checks:** 16 recomputations that don't trust the engine; 4 disagree with the return.
-- **Readiness:** the firm's required steps computed from real state. It never claims the return was filed.
-- **Client portal:** a client role sees only the questions sent to them; their answers are recorded as evidence.
-- **Investigation copilot (AI, optional):** on any case, a bounded tool-calling agent (Claude Sonnet 5.5) retrieves the case's records with read-only tools, compares values with deterministic arithmetic, and submits a structured report: facts, hypotheses, missing information, next steps and an optional draft client question. Every cited id and every amount is checked against the packet before the report is shown. Reports are labelled as suggestions; a reviewer accepts, edits or rejects them, and nothing changes the case on its own. Details: ARCHITECTURE.md → Investigation copilot; results: VALIDATION_REPORT.md.
-- **Roles (demo switcher):** preparer, preparer without clearance (SSNs masked, unmasking refused), reviewer, partner, administrator, client. Permissions are enforced in the command layer, not just hidden in the UI.
+- **Readiness:** a checklist of the steps a return needs. Most are worked out from the cases, documents and sign-offs in this workpaper. Three are shown as **"Not tracked in this demo"** because the app does not really derive them (engagement letter signed, carryovers agreed, client approval and e-file) and they never block readiness. It never claims the return was filed. The top bar shows **Blocked** while a blocker-severity case is open; by my reading of the code it changes to **In progress** once the dependent SSN case is submitted for approval or resolved (the author observed the change after resolving it).
+- **Related returns:** the household's three related returns (Ada's own 1040, the S corporation's 1120-S, the real estate fund's 1065), what this packet holds of each (only K-1s for two, nothing for Ada), the return lines those K-1s feed, and the cases that cite them. K-1 document pages link back to it.
+- **Client portal:** a client role sees only the questions sent to them; their answers are recorded as evidence. The separation is in the interface; see "Known weaknesses and tradeoffs".
+- **Activity:** a log of every action (who, what, when) with undo (your own changes; a partner can undo anyone's), the sensitive-data view log, and the packet's own season timeline (a scripted replay, not actions taken here). An unread-changes indicator exists in the code but did not show up in the author's test, so it is not claimed (see "Known weaknesses and tradeoffs").
+- **Investigation copilot (AI, optional):** on any case, a bounded tool-calling agent (Claude Sonnet 5.5) retrieves the case's records with read-only tools, compares values with deterministic arithmetic, and submits a structured report: facts, hypotheses, missing information, next steps and an optional draft client question. Every cited id and every amount is checked against the packet before the report is shown. Reports are labelled as suggestions; a reviewer accepts, edits or rejects them, and nothing changes the case on its own. The author has run it once on the deployed site (a three-line summary appeared); there is no broader testing in the deployed environment. Details: ARCHITECTURE.md → Investigation copilot; results: VALIDATION_REPORT.md.
+- **Roles (demo switcher):** preparer, preparer without clearance (SSNs masked, unmasking refused), reviewer, partner, administrator, client. Permissions are enforced in the command layer, not just hidden in the buttons, but that layer runs in the browser (see "Known weaknesses and tradeoffs"). A reviewer can open a case that needs a partner and press Approve; the app then refuses with a "needs partner approval" warning. The banner "This case is waiting for your approval" (Steps 1-3) appears only when the real approve command would succeed for that person.
 
 ## Identifier masking (display only)
 
@@ -71,10 +82,10 @@ Without a key or an access code everything except the copilot works, and the cop
 ## Tests
 
 ```bash
-npm test             # 93 tests: domain rules, guided flow, masking, copilot tools, loop, verifier, permissions, API security and cache (no model calls)
+npm test             # 101 tests: domain rules, guided flow, readiness, masking, copilot tools, loop, verifier, permissions, API security, cache and the static server (no model calls)
 npm run build && npx vite preview --port 4173   # in one terminal
 npm run test:e2e     # 24-step browser journey (uses local Chrome or Edge via playwright-core)
-npm run test:e2e:flow              # 18 journeys: guided flow, help panel, masking, AI summary/cache/link bridge (no model calls)
+npm run test:e2e:flow              # 22 journeys: guided flow, help panel, masking, related returns, reviewer banner, readiness, AI summary/cache/link bridge (no model calls)
 WIDTH=390 npm run test:e2e:flow    # the same at phone width
 npm run eval:copilot -- --dry       # check the copilot eval definitions (free)
 npm run eval:copilot -- --repeat 2  # live eval: real model calls, costs money (about $0.07 per run)
@@ -85,7 +96,7 @@ npx tsx eval/rescore.ts eval/results/<file>.json   # re-verify saved runs with t
 
 ## Deploy
 
-**Not deployed.** `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser. The packet data is invented, but it should not be put on a public URL as-is: public hosting needs a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key and an access code (see "AI copilot: access code, limits and cache"). For Render, see "Deploy to Render" below.
+**Deployed on Render** (see "Live demo"). `dist/` includes the original packet (`data/okafor_lindqvist_2025_packet.json`) because the workpaper runs in the browser, so the packet is public, identifiers included. The data is invented, but real client data should never be hosted this way: that would need a sanitized packet, which is not built. Without the copilot, `dist/` works on any static host; routing is hash-based. With the copilot, run `npm start` on a server that holds the key and an access code (see "AI copilot: access code, limits and cache"). For Render, see "Deploy to Render" below.
 
 ## Deploy to Render
 
@@ -108,9 +119,29 @@ Post-deploy checklist:
 - `/robots.txt` disallows everything and the page carries a noindex tag.
 - The packet is public. It is served to anyone who opens the site (`/data/okafor_lindqvist_2025_packet.json`), identifiers included, although the data is invented. Masking in the screens is display-only.
 
+## Known weaknesses and tradeoffs
+
+Stated plainly, so nothing here is a surprise:
+
+- **Work is not shared between browsers.** Each browser keeps its own history in `localStorage`. There is no live sharing and no server copy of the workpaper.
+- **The unread-changes indicator did not appear in the author's test.** An unread count on Activity and a marker on a case exist in the code, but they only count changes made by *another* role after that role has pressed Activity → "Mark all seen" once in the same browser. Without that baseline nothing shows, and the author saw nothing after switching roles and reloading. Treat it as not demonstrated.
+- **`authorize()` trusts the effects sent with a command.** A tax effect typed into an adjustment is checked against the partner threshold, not recomputed.
+- **The manual adjustment form ignores the California-source rule.** An adjustment entered by hand for a line the rule splits by state gets the wrong California effect (for example, N3 by hand gives California −649 instead of −1,222). The suggested adjustments are correct.
+- **`needsPartner` counts rejected adjustments**, so a rejected large adjustment can still make a case need a partner.
+- **Client-portal separation is UI-only.** The client role is not shown staff screens, but the rules run in the browser and the data is in the same browser.
+- **Roles are enforced in the browser.** The role switcher is not authentication. Someone with developer tools can bypass it.
+- **The limiter, daily cap and report cache are in memory** (the cache is in each browser) and reset on a restart. On the free Render plan the service sleeps, which resets the limiter and the cap. Set a spend limit on the Anthropic key.
+- **The access code is not user authentication.** It gates paid AI calls only; it does not protect the packet or the workpaper.
+- **Masking is display-only.** Identifiers are still in the packet file and in the browser's saved log.
+- **The packet is served publicly** to anyone who opens the site.
+- **The exported audit log is unmasked.** It is written verbatim as the record.
+- **Some pages scroll sideways at phone width** (step 2 and full details of three cases, and one Prior-year page).
+- **The AI copilot was run on the deployed site once** by the author (a three-line summary appeared). There is no broader testing in the deployed environment; the live evaluation (18 runs) was done locally in October.
+- **No accessibility audit** has been done.
+
 ## Saving
 
-Every change is an event in an append-only log, saved to the browser's `localStorage` (key `mf-workpaper:CL-20417:1.0`). Work survives a refresh in that browser. Activity → **Export log** / **Import log** moves a session between machines; **Reset demo** clears it. The storage sits behind a three-method `Repository` interface, so a shared server store can replace it without UI changes (see ARCHITECTURE.md).
+Every change is an event in an append-only log, saved to the browser's `localStorage` (key `mf-workpaper:CL-20417:1.0`). Work survives a refresh in that browser. **Each browser keeps its own history: two people, or a normal and a private window, do not see each other's work** (tested by the author). Activity → **Export log** / **Import log** moves a session between machines by hand; **Reset demo** clears it. The storage sits behind a three-method `Repository` interface, so a shared server store can replace it without UI changes (see ARCHITECTURE.md).
 
 ## How AI is used
 

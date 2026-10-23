@@ -17,7 +17,7 @@
 
 **Not built / partly built**
 - **Several people at once:** each browser keeps its own history; sharing would mean saving the same log on a server.
-- **"What changed since I last looked":** the Activity log lists every action; the unread indicator did not show in my test.
+- **"What changed since I last looked":** partly built. After "Mark all seen", another role's change in the same browser shows a count and a marker; changes from another computer never do.
 - **Client approval and e-file signature:** one more recorded step after partner sign-off.
 - **Freeze at filing, amend:** a "filed" event, after which changes are refused; an amendment starts a copy.
 - **Time against budget:** hours could be added up from timestamps already in the log.

@@ -20,7 +20,7 @@ Everything below was run in the session that produced it; the numbers are copied
 
 **The author's own checks (manual), recorded as observed:**
 - **Two browsers do not share work.** A note added in one browser did not appear in a private window. Each browser keeps its own history.
-- **The unread-changes indicator did not appear.** After switching to a different role and reloading, neither the unread count on Activity nor the marker on the case showed. By reading the code, it needs a per-role baseline (Activity → "Mark all seen") and counts only other roles' changes in the same browser; a scripted run on the deployed site on 2026-10-23 showed it only after that baseline was set. It is not claimed as a feature.
+- **The unread-changes indicator works once a baseline is set.** The author's first test (switch to a different role and reload) showed neither the unread count on Activity nor the marker on the case, because no baseline had been set: it needs Activity → "Mark all seen" first, and it counts only other roles' changes in the same browser. A scripted run on the deployed site on 2026-10-23 showed it only after that baseline was set, and the author later tested it by hand on the deployed site and it worked after pressing "Mark all seen". It is partly built: it works per browser and per role and cannot show another person's changes from another computer.
 - **The AI summary appeared once on the deployed site** with the access code. That is the whole extent of testing the copilot in the deployed environment.
 - **Behaviours seen:** a reviewer sees the Approve button on a case that needs a partner and the app refuses it ("needs partner approval"); the top bar changes from "Blocked" to "In progress" after the dependent SSN case is resolved.
 

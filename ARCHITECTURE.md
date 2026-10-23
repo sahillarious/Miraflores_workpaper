@@ -56,7 +56,7 @@ The workpaper runs entirely in the browser (the server only serves files and the
 
 **Limitation (stated plainly):** each browser has its own log. The author tested this: a note added in one browser did not appear in a private window. There is no live sharing. The role switcher simulates people; it is not authentication. Authorization runs in the client-side command layer, which is the same function a server would call, but today it runs in the browser, so roles are not enforced against someone with developer tools.
 
-**Unread changes.** `lastSeen` (per role, per browser, in `localStorage`) drives an unread count on Activity and a marker on cases. It starts empty and is set only when a person presses Activity → "Mark all seen", so before that nothing shows, and it counts only changes made by other roles in the same browser. It did not appear in the author's test (switching role and reloading without pressing the button). It is not claimed as a feature; the Activity log itself lists every action.
+**Unread changes.** `lastSeen` (per role, per browser, in `localStorage`) drives an unread count on Activity and a marker on cases. It starts empty and is set only when a person presses Activity → "Mark all seen", so before that nothing shows, and it counts only changes made by other roles in the same browser. The author's first test (switching role and reloading without pressing the button) showed nothing for that reason; after pressing it, the author confirmed on the deployed site that the count and marker appear. It is partly built: it works per browser and per role and cannot show another person's changes from another computer. The Activity log itself lists every action.
 
 ## Tradeoffs
 

@@ -60,14 +60,20 @@ The top bar still says **Blocked** (the Theo SSN blocker is open). By my reading
 2. **Role: Priya Raman.** Client records, click **reveal** next to Ngozi's SSN. **See:** the full number and a "hide" control.
 3. Open **Activity**. **See:** "Sensitive-data view log (1): Priya Raman viewed household:ngozi.ssn". Say: every reveal is logged. Also say: this is **display masking only**; the identifiers are still in the data file and in the browser's saved log.
 
-## 6. A stale sign-off (9:00 to 10:00)
+## 6. A stale sign-off, then unread changes (9:00 to 10:30)
 
 **Role:** Priya (the RSU case was resolved in section 2).
 
 1. Open **Documents**, then **D11**. In **Disposition**, choose **Supplemental evidence**, add a short note, click **Save**.
 2. Open the RSU case. **See:** the banner "This case was signed off, but the evidence it covers changed afterwards. The sign-off no longer counts; reopen and reconsider." and the checklist item "Decision submitted: **Changed since sign-off**". Say: a sign-off remembers the evidence it covered and reopens when it changes.
 
-## 7. The AI copilot (10:00 to 11:15)
+**Unread changes (about 30 seconds).** This shows the "what changed since I last looked" indicator, which is partly built (see the spoken points).
+
+3. **Role: Daniel Ortiz.** Open **Activity** and click **Mark all seen**. (Without this baseline nothing shows.)
+4. **Role: Priya Raman.** Open the Meridian case, **Show full details**, and in the **Notes** box in the right pane type any note and click **Add**.
+5. **Role: Daniel Ortiz.** **See:** a count on **Activity** in the left menu, a small dot on the Meridian case in the **Review queue** ("Changed since you last looked"), and on **Activity** the line "1 new since you last looked".
+
+## 7. The AI copilot (10:30 to 11:30)
 
 **This is the only section that needs the access code** (also the "AI second look" card in the help panel). Without the code everything else above works, and Step 1 says the AI is off.
 
@@ -78,16 +84,17 @@ The top bar still says **Blocked** (the Theo SSN blocker is open). By my reading
 3. Step 4: click **Draft from the AI analysis**. **See:** the reason filled in, marked "AI draft: check and edit it before you submit". It is not submitted for you.
 4. Say: suggestion only, citations verified, an unverified report cannot be accepted, and it never changes a case.
 
-## 8. Close (11:15 to 12:00)
+## 8. Close (11:30 to 12:15)
 
 Spoken points. Tradeoffs:
 - A browser app plus a small server (it holds the AI key), not a database. It runs from a link, but **each browser keeps its own history; two people do not see each other's work**.
 - Rules in code, not AI, so findings are repeatable. A few rules fit this packet.
 - Tax effects are estimates from the packet's rates, not a recomputed return.
+- The unread indicator works per browser and per role, so it does not show another person's changes on another computer.
 - Roles are checked in the browser: a demonstration of the rules, not security. The access code gates paid AI calls and is not user authentication.
 - Masking is display-only, and the packet is public on this site.
 
-What is not built (say it plainly): several people at once; the "what changed since I last looked" indicator (the Activity log lists every action; the unread count did not show in my testing, so I do not claim it); client approval and e-file signature; freeze at filing and amend; time against budget; a firm-standards screen; books-to-tax and state-split schedules; your own what-ifs; file upload; a notice-response package; next-year roll-forward; per-number "how verified"; elections and penalty decisions; bonus and recapture columns; richer Form 8949 lot detail.
+What is not built (say it plainly): several people at once; client approval and e-file signature; freeze at filing and amend; time against budget; a firm-standards screen; books-to-tax and state-split schedules; your own what-ifs; file upload; a notice-response package; next-year roll-forward; per-number "how verified"; elections and penalty decisions; bonus and recapture columns; richer Form 8949 lot detail. Partly built: the "what changed since I last looked" indicator (it works in one browser, per role, after "Mark all seen").
 
 How AI was used: the app was built with Claude Code, directed and reviewed by me, and at runtime the optional copilot is the only model use (I ran it once on the deployed site).
 

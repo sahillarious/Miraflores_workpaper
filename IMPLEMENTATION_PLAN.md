@@ -25,8 +25,11 @@
 | 2 | Overview, review queue, investigation workspace, document viewer, reconciliation inspector, line trace | Done |
 | 3 | Event log, state machine, notes, questions and answers, adjustments, decisions and approval, dispositions, stale sign-offs, persistence, undo, bulk actions | Done |
 | 4 | Version comparison, change log, what-ifs, readiness, independent checks | Done |
-| 5 | Breadth (21 workpaper rules), client portal, masking and view log, assets, prior-year browser, narrow layout, dark mode | Done |
-| 6 | Build, 26 domain tests, 23-step browser journey, docs | Done |
+| 5 | Breadth (21 workpaper rules), client portal, masking and view log, assets, prior-year browser, narrow layout | Done (a dark theme built here was removed in milestone 7) |
+| 6 | Build, 26 domain tests, 23-step browser journey, docs | Done (today: 101 unit tests, a 24-step journey and 22 flow journeys) |
+| 7 | Usability redesign: light theme, plain labels, guided four-step case flow over the same workflow, "Your next case" home, help panel, identifier masking everywhere, related returns page, reviewer banner, readiness steps marked "Not tracked in this demo" | Done |
+| 8 | AI hardening: access code, rate limits, daily cap, report cache, plain three-line summary, rationale draft, link bridge | Done |
+| 9 | Deployment to Render (`render.yaml`, `/healthz`, noindex, malformed-URL fix) | Done: https://miraflores-workpaper-up2n.onrender.com |
 
 ## Risks and tradeoffs
 
@@ -60,6 +63,10 @@
 **Remaining risks and next steps:**
 - Re-run the live eval after the verifier and household fixes; the 15/18 figure is a re-score.
 - Add an entailment check for claim text (for example, a second model as judge, validated against a hand-labelled set). Today's checks cover ids and amounts only.
-- Move copilot authorization and the workpaper event log to the server before any multi-user use, and add authentication to the endpoint.
-- Build a sanitized packet before any public deployment.
+- Move copilot authorization and the workpaper event log to the server before any multi-user use. The endpoint now requires a shared access code (milestone 8), which is a gate for paid calls and not user authentication; real authentication is not built.
+- Build a sanitized packet before hosting real data. The site is deployed with the original (invented) packet, which is therefore public.
 - Calibrate statuses: one run labelled a counted-once duplicate as `confirmed_discrepancy`. A prompt example or a rule-layer cross-check could address it; measure before changing.
+
+## Not built (named, not hidden)
+
+Several people working at once (each browser keeps its own history), the unread "changes since I last looked" indicator (exists in code, did not show in the author's test), client approval and e-file signature, freeze at filing and amend, time against budget, a firm-standards screen, books-to-tax and state-split schedules, user-made what-ifs, file upload, a notice-response package, next-year roll-forward, per-number "how verified", elections and penalty decisions, bonus and recapture columns, and richer Form 8949 lot detail. See "Not built / partly built" in PRODUCT_WRITEUP.md for how each would fit the event log.
